@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Data artifacts
+sample_data/raw/
+sample_data/processed/
+*.parquet
+*.csv
+*.tsv
+
+# Build artifacts
+dist/
+build/
