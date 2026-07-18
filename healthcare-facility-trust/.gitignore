@@ -23,6 +23,7 @@ sample_data/raw/
 sample_data/processed/
 *.parquet
 *.csv
+!sample_data/clean_facilities.csv
 *.tsv
 
 # Build artifacts
