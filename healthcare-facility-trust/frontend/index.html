@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Legend — Facility Trust Desk</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: #18202f;
+        background: #f7f8fb;
+      }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 40px 24px;
+      }
+
+      h1 {
+        margin-bottom: 8px;
+      }
+
+      section {
+        margin-top: 24px;
+        padding: 20px;
+        border: 1px solid #d9deea;
+        border-radius: 10px;
+        background: #ffffff;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+
+      select,
+      input,
+      button {
+        min-height: 38px;
+        border-radius: 6px;
+        border: 1px solid #b8c0cf;
+        font-size: 14px;
+      }
+
+      select,
+      input {
+        padding: 0 10px;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 0 14px;
+        background: #2347c5;
+        color: #ffffff;
+        border-color: #2347c5;
+      }
+
+      button:hover {
+        background: #19369a;
+      }
+
+      .filters,
+      .smoke-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: end;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #api-result {
+        min-height: 48px;
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 8px;
+        background: #f0f3fa;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Data Legend — Facility Trust Desk</h1>
+      <p>
+        Facility Trust Desk helps public-health planners evaluate whether claimed
+        healthcare capabilities are supported by evidence. This MVP only verifies
+        frontend-to-backend API wiring.
+      </p>
+
+      <section>
+        <h2>Filters</h2>
+        <div class="filters">
+          <div class="field">
+            <label for="capability">Capability</label>
+            <select id="capability">
+              <option>ICU</option>
+              <option>NICU</option>
+              <option>Emergency</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="state">State</label>
+            <input id="state" type="text" placeholder="State placeholder" />
+          </div>
+
+          <button type="button" data-endpoint="search">Search</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>API Smoke Test</h2>
+        <div class="smoke-buttons">
+          <button type="button" data-endpoint="health">Health</button>
+          <button type="button" data-endpoint="filters">Filters</button>
+          <button type="button" data-endpoint="summary">Summary</button>
+          <button type="button" data-endpoint="search">Facility Search</button>
+          <button type="button" data-endpoint="detail">Facility Detail</button>
+          <button type="button" data-endpoint="quality">Data Quality</button>
+          <button type="button" data-endpoint="review">Save Review</button>
+        </div>
+        <div id="api-result">Click a smoke test button to call the backend.</div>
+      </section>
+    </main>
+
+    <script>
+      const API_BASE_URL = "http://localhost:8000";
+      const result = document.querySelector("#api-result");
+
+      const endpoints = {
+        health: { method: "GET", path: "/api/health" },
+        filters: { method: "GET", path: "/api/filters" },
+        summary: { method: "GET", path: "/api/summary" },
+        search: { method: "GET", path: "/api/facilities/search" },
+        detail: { method: "GET", path: "/api/facilities/demo-facility-1" },
+        quality: { method: "GET", path: "/api/data-quality" },
+        review: {
+          method: "POST",
+          path: "/api/reviews",
+          body: {
+            facilityId: "demo-facility-1",
+            capability: "ICU",
+            decision: "needs_review",
+            note: "Demo reviewer note",
+          },
+        },
+      };
+
+      async function callEndpoint(name) {
+        const endpoint = endpoints[name];
+        result.textContent = "Calling backend...";
+
+        try {
+          // TODO: Replace smoke-test calls with real dashboard data loading later.
+          const response = await fetch(`${API_BASE_URL}${endpoint.path}`, {
+            method: endpoint.method,
+            headers: endpoint.body ? { "Content-Type": "application/json" } : {},
+            body: endpoint.body ? JSON.stringify(endpoint.body) : undefined,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          result.textContent = await response.text();
+        } catch (error) {
+          result.textContent = `API call failed: ${error.message}`;
+        }
+      }
+
+      document.querySelectorAll("[data-endpoint]").forEach((button) => {
+        button.addEventListener("click", () => callEndpoint(button.dataset.endpoint));
+      });
+    </script>
+  </body>
+</html>
