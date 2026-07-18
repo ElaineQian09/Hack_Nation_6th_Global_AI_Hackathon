@@ -29,7 +29,25 @@ frontend/
 
 sample_data/
   demo_facilities.json    Demo records for local scoring and app development
+  clean_facilities.csv    Optional clean CSV loaded before demo data when present
 ```
+
+## Load clean data
+
+Place the clean CSV at:
+
+```text
+sample_data/clean_facilities.csv
+```
+
+When this file exists, the backend loads it instead of `demo_facilities.json`.
+The CSV can use the schema field names directly, including `name`,
+`address_city`, `address_stateOrRegion`, `description`, `capability`,
+`procedure`, `equipment`, `specialties`, `numberDoctors`, `capacity`,
+`yearEstablished`, `officialWebsite`, and `websites`.
+
+Common aliases such as `facilityId`, `facilityName`, `city`, `state`, `pin`,
+`capabilities`, and `procedures` are also normalized automatically.
 
 ## Run the backend
 

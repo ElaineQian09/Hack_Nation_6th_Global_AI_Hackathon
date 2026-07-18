@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import csv
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from fastapi import HTTPException
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 FACILITY_DATA_PATH = BASE_DIR / "sample_data" / "demo_facilities.json"
+CLEAN_FACILITY_CSV_PATH = BASE_DIR / "sample_data" / "clean_facilities.csv"
 
 CAPABILITY_RULES: dict[str, dict[str, list[str]]] = {
     "ICU": {
@@ -71,9 +73,158 @@ CAPABILITY_RULES: dict[str, dict[str, list[str]]] = {
 }
 
 
+LIST_FIELDS = {
+    "phone_numbers",
+    "websites",
+    "affiliationTypeIds",
+    "specialties",
+    "procedure",
+    "equipment",
+    "capability",
+}
+
+INT_FIELDS = {"area", "numberDoctors", "capacity", "yearEstablished"}
+
+FIELD_ALIASES = {
+    "id": "facility_id",
+    "facilityId": "facility_id",
+    "facility_id": "facility_id",
+    "name": "name",
+    "facilityName": "name",
+    "officialName": "name",
+    "city": "address_city",
+    "state": "address_stateOrRegion",
+    "stateOrRegion": "address_stateOrRegion",
+    "zip": "address_zipOrPostcode",
+    "postcode": "address_zipOrPostcode",
+    "pin": "address_zipOrPostcode",
+    "pincode": "address_zipOrPostcode",
+    "pinCode": "address_zipOrPostcode",
+    "country": "address_country",
+    "countryCode": "address_countryCode",
+    "country_code": "address_countryCode",
+    "officialWebsite": "officialWebsite",
+    "website": "officialWebsite",
+    "websites": "websites",
+    "source_urls_json": "websites",
+    "description": "description",
+    "facilityTypeId": "facilityTypeId",
+    "facility_type": "facilityTypeId",
+    "operatorTypeId": "operatorTypeId",
+    "operator_type": "operatorTypeId",
+    "affiliationTypeIds": "affiliationTypeIds",
+    "numberDoctors": "numberDoctors",
+    "doctor_count": "numberDoctors",
+    "capacity": "capacity",
+    "yearEstablished": "yearEstablished",
+    "specialties": "specialties",
+    "specialties_json": "specialties",
+    "procedure": "procedure",
+    "procedures": "procedure",
+    "procedures_json": "procedure",
+    "equipment": "equipment",
+    "equipment_json": "equipment",
+    "capability": "capability",
+    "capabilities": "capability",
+    "capabilities_json": "capability",
+    "data_quality_flags_json": "dataQualityFlags",
+}
+
+
 def load_facilities() -> list[dict[str, Any]]:
+    if CLEAN_FACILITY_CSV_PATH.exists():
+        return load_facilities_from_csv(CLEAN_FACILITY_CSV_PATH)
+
     with FACILITY_DATA_PATH.open() as file:
         return json.load(file)
+
+
+def load_facilities_from_csv(path: Path) -> list[dict[str, Any]]:
+    with path.open(newline="", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        return [normalize_csv_row(row, index) for index, row in enumerate(reader, start=1)]
+
+
+def normalize_csv_row(row: dict[str, Any], index: int) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+
+    for raw_key, value in row.items():
+        key = FIELD_ALIASES.get(raw_key, raw_key)
+        normalized[key] = normalize_csv_value(key, value)
+
+    normalized.setdefault("facility_id", f"facility-{index:05d}")
+    normalized.setdefault("name", f"Facility {index}")
+    normalized.setdefault("address_city", "")
+    normalized.setdefault("address_stateOrRegion", "")
+    normalized.setdefault("address_zipOrPostcode", "")
+    normalized.setdefault("address_country", "India")
+    normalized.setdefault("address_countryCode", "IN")
+    normalized.setdefault("facilityTypeId", "")
+    normalized.setdefault("operatorTypeId", "")
+    normalized.setdefault("description", "")
+    normalized.setdefault("officialWebsite", "")
+
+    for field in LIST_FIELDS:
+        normalized[field] = coerce_list(normalized.get(field))
+
+    for field in INT_FIELDS:
+        normalized[field] = coerce_int(normalized.get(field))
+
+    if normalized.get("officialWebsite") and not normalized.get("websites"):
+        normalized["websites"] = [normalized["officialWebsite"]]
+
+    return normalized
+
+
+def normalize_csv_value(key: str, value: Any) -> Any:
+    if value is None:
+        return None
+
+    value = str(value).strip()
+    if not value or value.lower() in {"nan", "none", "null", "n/a", "na"}:
+        return None
+
+    if key in LIST_FIELDS:
+        return coerce_list(value)
+    if key in INT_FIELDS:
+        return coerce_int(value)
+    return value
+
+
+def coerce_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    text = str(value).strip()
+    if not text:
+        return []
+
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except json.JSONDecodeError:
+            try:
+                parsed = json.loads(text.replace("'", '"'))
+                if isinstance(parsed, list):
+                    return [str(item).strip() for item in parsed if str(item).strip()]
+            except json.JSONDecodeError:
+                pass
+
+    parts = re.split(r"\s*\|\s*|\s*;\s*", text)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def coerce_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(str(value).replace(",", "")))
+    except ValueError:
+        return None
 
 
 def normalize(value: Any) -> str:
@@ -265,26 +416,43 @@ def score_results(
     capability: str = "ICU",
     state: str | None = None,
     city: str | None = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     if capability not in CAPABILITY_RULES:
         raise HTTPException(status_code=400, detail=f"Unsupported capability: {capability}")
 
     facilities = filter_facilities(load_facilities(), state, city)
     results = [score_facility(facility, capability) for facility in facilities]
-    return sorted(results, key=lambda item: item["trust_score"], reverse=True)
+    sorted_results = sorted(results, key=lambda item: item["trust_score"], reverse=True)
+    return sorted_results[:limit] if limit else sorted_results
+
+
+def compact_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
+    compact = assessment.copy()
+    compact["evidence_snippets"] = []
+    compact["description_text"] = None
+    compact["capability_text"] = []
+    compact["procedure_text"] = []
+    compact["equipment_text"] = []
+    compact["specialties"] = []
+    compact["support_signals"] = compact["support_signals"][:2]
+    return compact
 
 
 def search_facilities(
     capability: str | None = None,
     state: str | None = None,
     city: str | None = None,
+    limit: int = 100,
 ) -> dict[str, Any]:
     selected_capability = capability or "ICU"
+    normalized_limit = max(1, min(limit, 500))
+    results = score_results(selected_capability, state, city, limit=normalized_limit)
     return {
         "capability": selected_capability,
         "state": state,
         "city": city,
-        "results": score_results(selected_capability, state, city),
+        "results": [compact_assessment(result) for result in results],
     }
 
 
