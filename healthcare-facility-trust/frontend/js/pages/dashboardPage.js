@@ -1,7 +1,7 @@
 import {
   getFacility,
+  getFacilityMap,
   getFilters,
-  getHealth,
   getSummary,
   saveReview,
   searchFacilities,
@@ -11,28 +11,57 @@ import { escapeHtml } from "../utils/html.js";
 
 const filterForm = document.querySelector("#filter-form");
 const capabilityFilter = document.querySelector("#capability-filter");
+const capabilityCards = document.querySelectorAll(".capability-card");
 const stateFilter = document.querySelector("#state-filter");
 const cityFilter = document.querySelector("#city-filter");
+const stateCombobox = document.querySelector('[data-combobox="state"]');
+const cityCombobox = document.querySelector('[data-combobox="city"]');
+const stateComboboxInput = document.querySelector("#state-combobox-input");
+const cityComboboxInput = document.querySelector("#city-combobox-input");
+const stateComboboxMenu = document.querySelector("#state-combobox-list");
+const cityComboboxMenu = document.querySelector("#city-combobox-list");
+const stateComboboxToggle = stateCombobox?.querySelector(".combobox-toggle");
+const cityComboboxToggle = cityCombobox?.querySelector(".combobox-toggle");
 const refreshButton = document.querySelector("#refresh-button");
 const summaryGrid = document.querySelector("#summary-grid");
 const facilityList = document.querySelector("#facility-list");
 const facilityDetail = document.querySelector("#facility-detail");
+const detailScroll = document.querySelector(".detail-scroll");
 const resultCount = document.querySelector("#result-count");
 const selectedStatus = document.querySelector("#selected-status");
-const apiHealth = document.querySelector("#api-health");
+const facilityNameSearch = document.querySelector("#facility-name-search");
+const sortBySelect = document.querySelector("#sort-by");
+const sortOrderSelect = document.querySelector("#sort-order");
+const loadMoreButton = document.querySelector("#load-more-button");
+const MAPBOX_PUBLIC_TOKEN = window.MAPBOX_PUBLIC_TOKEN || "";
+
+let activeMap = null;
 
 const appState = {
   filters: null,
-  results: [],
+  allResults: [],
+  visibleResults: [],
+  visibleCount: 10,
   totalFacilities: 0,
   selectedFacilityId: null,
+  pageSize: 10,
+  nameQuery: "",
+  sortBy: "trust_score",
+  sortOrder: "desc",
+  selectedState: "",
+  selectedCity: "",
+  stateQuery: "",
+  cityQuery: "",
+  openCombobox: null,
+  highlightedComboboxIndex: {
+    state: 0,
+    city: 0,
+  },
 };
 
 async function initializeDashboard() {
   try {
-    const [health, filters] = await Promise.all([getHealth(), getFilters()]);
-    apiHealth.textContent = health;
-    apiHealth.classList.add("ready");
+    const filters = await getFilters();
     appState.filters = filters;
     renderFilterOptions(filters);
     await loadFacilities();
@@ -45,56 +74,77 @@ function currentFilters() {
   return {
     capability: capabilityFilter.value || "ICU",
     state: stateFilter.value,
-    city: cityFilter.value,
+    city: stateFilter.value ? cityFilter.value : "",
   };
 }
 
 function renderFilterOptions(filters) {
-  capabilityFilter.innerHTML = renderOptions(null, filters.capabilities);
-  stateFilter.innerHTML = renderOptions("All states", filters.states);
-  cityFilter.innerHTML = renderOptions("All cities", filters.cities);
+  const defaultCapability =
+    filters.capabilities?.find((capability) => {
+      const value = typeof capability === "object" ? capability.value : capability;
+      return value === "ICU";
+    }) ?? "ICU";
+  capabilityFilter.value =
+    typeof defaultCapability === "object" ? defaultCapability.value : defaultCapability;
+  appState.selectedState = stateFilter.value || "";
+  appState.selectedCity = cityFilter.value || "";
+  updateHiddenFilterValues();
+  updateCapabilityCards();
+  renderCityOptions();
+  syncComboboxDisplay("state");
+  syncComboboxDisplay("city");
+  renderComboboxOptions("state");
+  renderComboboxOptions("city");
 }
 
 function renderOptions(defaultLabel, values) {
   return [
     defaultLabel ? `<option value="">${escapeHtml(defaultLabel)}</option>` : "",
-    ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+    ...values.map((option) => {
+      const value = typeof option === "object" ? option.value : option;
+      const label = typeof option === "object" ? option.label : option;
+      return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+    }),
   ].join("");
 }
 
 function renderSummary(summary) {
   appState.totalFacilities = summary.facility_count;
   summaryGrid.innerHTML = `
-    ${renderSummaryCard("Facilities", summary.facility_count)}
-    ${renderSummaryCard("Trusted", summary.trust_buckets.Trusted)}
-    ${renderSummaryCard("Mixed", summary.trust_buckets.Mixed)}
-    ${renderSummaryCard("Warnings", summary.warning_count)}
-    ${renderSummaryCard("Sparse Signals", summary.missing_signal_count)}
+    ${renderSummaryCard("Matching Facilities", summary.facility_count, "Facilities matching this scope")}
+    ${renderSummaryCard("Trusted Facilities", summary.trust_buckets.Trusted, "Strong evidence-backed records")}
+    ${renderSummaryCard("Mixed Facilities", summary.trust_buckets.Mixed, "Some support, but gaps remain")}
+    ${renderSummaryCard("Warning Signals", summary.warning_count, "Review warnings found")}
+    ${renderSummaryCard("Missing Evidence Signals", summary.missing_signal_count, "Missing context signals")}
   `;
 }
 
-function renderSummaryCard(label, value) {
+function renderSummaryCard(label, value, description) {
   return `
     <article class="summary-card">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
+      <p>${escapeHtml(description)}</p>
     </article>
   `;
 }
 
 async function loadFacilities() {
-  facilityList.innerHTML = `<div class="empty-state">Loading ranked facilities...</div>`;
-  facilityDetail.innerHTML = `<div class="empty-state">Loading evidence...</div>`;
+  renderListLoading();
+  renderDetailLoading();
 
   const filters = currentFilters();
   const [searchResponse, summaryResponse] = await Promise.all([
-    searchFacilities(filters),
+    searchFacilities({ ...filters, limit: 500 }),
     getSummary(filters),
   ]);
 
-  appState.results = searchResponse.results;
-  appState.selectedFacilityId = appState.results[0]?.facility_id ?? null;
+  appState.allResults = searchResponse.results ?? [];
+  appState.visibleCount = appState.pageSize;
   renderSummary(summaryResponse);
+  renderCityOptions();
+  applyLocalFiltersAndSort();
+  appState.selectedFacilityId = appState.visibleResults[0]?.facility_id ?? null;
   renderFacilities();
 
   if (appState.selectedFacilityId) {
@@ -106,63 +156,86 @@ async function loadFacilities() {
 }
 
 function renderFacilities() {
-  resultCount.textContent = `Showing top ${appState.results.length} of ${appState.totalFacilities} facilities, ranked by ${currentFilters().capability} trust score`;
-  facilityList.innerHTML = appState.results.length
-    ? appState.results
-        .map((facility, index) => renderFacilityCard(facility, appState.selectedFacilityId, index))
+  const total = appState.visibleResults.length;
+  const visibleItems = appState.visibleResults.slice(0, appState.visibleCount);
+
+  resultCount.textContent = total ? "Top results" : "No matches found";
+
+  facilityList.innerHTML = visibleItems.length
+    ? visibleItems
+        .map((facility, index) =>
+          renderFacilityCard(
+            facility,
+            appState.selectedFacilityId,
+            index
+          )
+        )
         .join("")
     : `<div class="empty-state">No facilities match the selected filters.</div>`;
 
   document.querySelectorAll("[data-facility-id]").forEach((button) => {
     button.addEventListener("click", () => selectFacility(button.dataset.facilityId));
   });
+
+  renderLoadMoreButton();
 }
 
 async function selectFacility(facilityId) {
   appState.selectedFacilityId = facilityId;
   renderFacilities();
-  facilityDetail.innerHTML = `<div class="empty-state">Loading evidence...</div>`;
+  removeActiveMap();
+  renderDetailLoading();
 
   const detail = await getFacility(facilityId, {
     capability: currentFilters().capability,
   });
   renderFacilityDetail(detail);
+  resetDetailScroll();
+  await loadFacilityMap(facilityId);
 }
 
 function renderFacilityDetail(payload) {
   const { assessment, facility, reviews } = payload;
+  const pincode = facility.address_zipOrPostcode ?? facility.pin_code ?? "Not listed";
+  const website = facility.officialWebsite ?? facility.official_website ?? "";
+  const facilityType = facility.facilityTypeId ?? facility.facility_type ?? "Facility";
   selectedStatus.textContent = `${assessment.selected_capability} assessment`;
 
   facilityDetail.innerHTML = `
-    <div class="detail-grid">
-      <article class="mini-card">
-        <span>Trust</span>
-        <strong>${escapeHtml(assessment.trust_score)} / 100</strong>
-        <em class="tag trust-${assessment.trust_label.toLowerCase()}">${escapeHtml(assessment.trust_label)}</em>
-      </article>
-      <article class="mini-card">
-        <span>Confidence</span>
-        <strong>${escapeHtml(assessment.confidence_level)}</strong>
-        <em>Claim present: ${assessment.claim_present ? "Yes" : "No"}</em>
-      </article>
-      <article class="mini-card">
-        <span>Operating Context</span>
-        <strong>${escapeHtml(assessment.capacity ?? "Unknown")} beds</strong>
-        <em>${escapeHtml(assessment.number_doctors ?? "Unknown")} doctors</em>
-      </article>
-    </div>
-
     <section class="evidence-section">
       <span class="section-kicker">Assessment</span>
       <h3>${escapeHtml(assessment.facility_name)}</h3>
       <p>${escapeHtml(assessment.reason_summary)}</p>
       <div class="facility-meta">
-        <span>${escapeHtml(facility.facilityTypeId)}</span>
+        <span>${escapeHtml(facilityType)}</span>
         <span>${escapeHtml(assessment.city)}, ${escapeHtml(assessment.state)}</span>
-        <span>${escapeHtml(facility.officialWebsite || "No website")}</span>
+        <span>${escapeHtml(website || "No website listed")}</span>
       </div>
     </section>
 
+    <section class="clinic-info-grid" aria-label="Facility review summary">
+      <article class="clinic-info-column">
+        <span class="section-kicker">Location</span>
+        <h3>${escapeHtml(assessment.city)}, ${escapeHtml(assessment.state)}</h3>
+        <p>${escapeHtml(facilityType)}</p>
+        <p>Pincode: ${escapeHtml(pincode)}</p>
+      </article>
+      <article class="clinic-info-column">
+        <span class="section-kicker">Evidence Summary</span>
+        <h3>${escapeHtml(assessment.trust_score)} / 100</h3>
+        <p><span class="tag trust-${assessment.trust_label.toLowerCase()}">${escapeHtml(assessment.trust_label)}</span></p>
+        <p>Confidence: ${escapeHtml(assessment.confidence_level)}</p>
+        <p>Claim present: ${assessment.claim_present ? "Yes" : "No"}</p>
+      </article>
+      <article class="clinic-info-column">
+        <span class="section-kicker">Source / Context</span>
+        <h3>${escapeHtml(assessment.capacity ?? "Unknown")} beds</h3>
+        <p>${escapeHtml(assessment.number_doctors ?? "Unknown")} doctors</p>
+        <p>${website ? "Website/source available" : "No website listed"}</p>
+      </article>
+    </section>
+
+    ${renderFacilityLocationSection()}
     ${renderEvidenceSection("Evidence Receipts", assessment.evidence_snippets)}
     ${renderSignalSection("Warnings", assessment.warning_signals, "No warning signals found.")}
     ${renderSignalSection("Missing Context", assessment.missing_signals, "No critical context gaps found.")}
@@ -171,6 +244,153 @@ function renderFacilityDetail(payload) {
   `;
 
   document.querySelector("#review-form").addEventListener("submit", handleSaveReview);
+}
+
+function renderFacilityLocationSection() {
+  return `
+    <section class="evidence-section map-card">
+      <span class="section-kicker">Location</span>
+      <h3>Facility Location</h3>
+      <div id="facility-map-content">
+        <p class="empty-state">Loading location...</p>
+      </div>
+    </section>
+  `;
+}
+
+async function loadFacilityMap(facilityId) {
+  const container = document.querySelector("#facility-map-content");
+  if (!container) {
+    return;
+  }
+
+  try {
+    const mapPayload = await getFacilityMap(facilityId);
+    if (appState.selectedFacilityId !== facilityId) {
+      return;
+    }
+    renderFacilityMap(mapPayload);
+  } catch (error) {
+    if (appState.selectedFacilityId !== facilityId) {
+      return;
+    }
+    container.innerHTML = `<p class="empty-state">No reliable map location available.</p>`;
+  }
+}
+
+function renderFacilityMap(mapPayload) {
+  removeActiveMap();
+  const container = document.querySelector("#facility-map-content");
+  if (!container) {
+    return;
+  }
+
+  if (mapPayload.latitude === null || mapPayload.longitude === null) {
+    container.innerHTML = `
+      <p class="empty-state">No reliable map location available.</p>
+      ${mapPayload.warning ? `<p class="map-warning">${escapeHtml(mapPayload.warning)}</p>` : ""}
+    `;
+    return;
+  }
+
+  const safeMapId = String(mapPayload.facilityId).replace(/[^a-zA-Z0-9_-]/g, "-");
+  const mapId = `facility-map-${safeMapId}`;
+  const sourceLabel = mapPayload.source === "existing_coordinates"
+    ? "existing coordinates"
+    : "Mapbox geocoded";
+
+  container.innerHTML = `
+    <div id="${mapId}" class="facility-map" role="img" aria-label="Map for ${escapeHtml(mapPayload.name)}"></div>
+    <p class="map-meta">
+      Location source: ${escapeHtml(sourceLabel)}
+      ${mapPayload.placeName ? ` · ${escapeHtml(mapPayload.placeName)}` : ""}
+    </p>
+    ${mapPayload.warning ? `<p class="map-warning">${escapeHtml(mapPayload.warning)}</p>` : ""}
+  `;
+
+  if (!MAPBOX_PUBLIC_TOKEN || !window.mapboxgl) {
+    container.querySelector(".facility-map").innerHTML = `
+      <div class="map-token-empty">Map preview requires a Mapbox public token.</div>
+    `;
+    return;
+  }
+
+  try {
+    // Mapbox GL JS expects [longitude, latitude], not [latitude, longitude].
+    const center = [mapPayload.longitude, mapPayload.latitude];
+    activeMap = new mapboxgl.Map({
+      accessToken: MAPBOX_PUBLIC_TOKEN,
+      container: mapId,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center,
+      zoom: 13,
+    });
+
+    activeMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    activeMap.scrollZoom.disable();
+
+    const popup = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      offset: 26,
+    }).setHTML(renderMapPopupHtml(mapPayload));
+
+    new mapboxgl.Marker({ color: "#145a4a" })
+      .setLngLat(center)
+      .setPopup(popup)
+      .addTo(activeMap);
+  } catch (error) {
+    container.querySelector(".facility-map").innerHTML = `
+      <div class="map-token-empty">Map preview is unavailable in this browser.</div>
+    `;
+  }
+}
+
+function renderMapPopupHtml(mapPayload) {
+  const googleMapsUrl = buildGoogleMapsUrl(mapPayload);
+
+  return `
+    <div class="map-popup">
+      <strong>${escapeHtml(mapPayload.name)}</strong>
+      ${
+        googleMapsUrl
+          ? `
+            <button
+              type="button"
+              class="google-map-link"
+              data-google-map-url="${escapeHtml(googleMapsUrl)}"
+            >
+              Open in Google Maps
+            </button>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
+function buildGoogleMapsUrl(mapPayload) {
+  if (mapPayload.latitude !== null && mapPayload.longitude !== null) {
+    const query = `${mapPayload.latitude},${mapPayload.longitude}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  const query = [mapPayload.name, mapPayload.address, mapPayload.placeName]
+    .filter(Boolean)
+    .join(", ");
+
+  if (!query) {
+    return "";
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function removeActiveMap() {
+  if (activeMap) {
+    activeMap.remove();
+    activeMap = null;
+  }
 }
 
 function renderEvidenceSection(title, evidence) {
@@ -262,6 +482,430 @@ function renderSavedReviews(reviews) {
   `;
 }
 
+function renderCityOptions() {
+  if (!appState.selectedState) {
+    appState.selectedCity = "";
+    appState.cityQuery = "";
+    updateHiddenFilterValues();
+    updateCityDisabledState();
+    syncComboboxDisplay("city");
+    renderComboboxOptions("city");
+    return;
+  }
+
+  const cities = getCitiesForState(appState.selectedState);
+  if (appState.selectedCity && !cities.includes(appState.selectedCity)) {
+    appState.selectedCity = "";
+  }
+
+  updateHiddenFilterValues();
+  updateCityDisabledState();
+  syncComboboxDisplay("city");
+  renderComboboxOptions("city");
+}
+
+function getCitiesForState(state) {
+  if (appState.filters?.citiesByState?.[state]) {
+    return appState.filters.citiesByState[state];
+  }
+
+  if (appState.filters?.citiesByState && Array.isArray(appState.filters.citiesByState)) {
+    return appState.filters.citiesByState
+      .filter((item) => item.state === state)
+      .map((item) => item.city);
+  }
+
+  const resultCities = appState.allResults
+    .filter((facility) => facility.state === state)
+    .map((facility) => facility.city)
+    .filter(Boolean);
+
+  if (resultCities.length) {
+    return uniqueSorted(resultCities);
+  }
+
+  if (appState.filters?.cities?.length) {
+    return appState.filters.cities;
+  }
+
+  return [];
+}
+
+function getStateOptions() {
+  return [
+    { value: "", label: "All states" },
+    ...(appState.filters?.states ?? []).map((state) => ({
+      value: typeof state === "object" ? state.value : state,
+      label: typeof state === "object" ? state.label : state,
+    })),
+  ];
+}
+
+function getCityOptions() {
+  if (!appState.selectedState) {
+    return [];
+  }
+
+  return [
+    { value: "", label: "All cities" },
+    ...getCitiesForState(appState.selectedState).map((city) => ({
+      value: city,
+      label: city,
+    })),
+  ];
+}
+
+function getComboboxElements(type) {
+  return type === "state"
+    ? {
+        root: stateCombobox,
+        input: stateComboboxInput,
+        menu: stateComboboxMenu,
+        toggle: stateComboboxToggle,
+      }
+    : {
+        root: cityCombobox,
+        input: cityComboboxInput,
+        menu: cityComboboxMenu,
+        toggle: cityComboboxToggle,
+      };
+}
+
+function getComboboxOptions(type) {
+  return type === "state" ? getStateOptions() : getCityOptions();
+}
+
+function getFilteredComboboxOptions(type) {
+  const query = (type === "state" ? appState.stateQuery : appState.cityQuery)
+    .trim()
+    .toLowerCase();
+  const options = getComboboxOptions(type);
+
+  if (!query) {
+    return options;
+  }
+
+  return options.filter((option) => option.label.toLowerCase().includes(query));
+}
+
+function renderComboboxOptions(type) {
+  const { menu } = getComboboxElements(type);
+  if (!menu) {
+    return;
+  }
+
+  const options = getFilteredComboboxOptions(type);
+  const selectedValue = type === "state" ? appState.selectedState : appState.selectedCity;
+  const highlightedIndex = Math.min(
+    appState.highlightedComboboxIndex[type],
+    Math.max(options.length - 1, 0)
+  );
+  appState.highlightedComboboxIndex[type] = highlightedIndex;
+
+  menu.innerHTML = options.length
+    ? options
+        .map((option, index) => {
+          const isSelected = option.value === selectedValue;
+          const isActive = index === highlightedIndex;
+          return `
+            <button
+              type="button"
+              class="combobox-option ${isSelected ? "selected" : ""} ${isActive ? "active" : ""}"
+              role="option"
+              aria-selected="${isSelected}"
+              data-combobox-value="${escapeHtml(option.value)}"
+              data-combobox-label="${escapeHtml(option.label)}"
+            >
+              <span>${escapeHtml(option.label)}</span>
+              ${isSelected ? `<span class="combobox-check" aria-hidden="true">✓</span>` : ""}
+            </button>
+          `;
+        })
+        .join("")
+    : `<div class="combobox-empty">No matching options</div>`;
+
+  menu.querySelectorAll(".combobox-option").forEach((option) => {
+    option.addEventListener("click", () => {
+      selectComboboxOption(type, option.dataset.comboboxValue, option.dataset.comboboxLabel);
+    });
+  });
+}
+
+function openCombobox(type) {
+  if (type === "city" && !appState.selectedState) {
+    return;
+  }
+
+  closeAllComboboxes(type);
+
+  const { root, input, menu } = getComboboxElements(type);
+  if (!root || !input || !menu) {
+    return;
+  }
+
+  appState.openCombobox = type;
+  appState.highlightedComboboxIndex[type] = 0;
+  root.classList.add("open");
+  root.querySelector(".combobox-shell")?.setAttribute("aria-expanded", "true");
+  menu.hidden = false;
+  renderComboboxOptions(type);
+  input.focus();
+}
+
+function closeCombobox(type) {
+  const { root, menu } = getComboboxElements(type);
+  if (!root || !menu) {
+    return;
+  }
+
+  root.classList.remove("open");
+  root.querySelector(".combobox-shell")?.setAttribute("aria-expanded", "false");
+  menu.hidden = true;
+
+  if (appState.openCombobox === type) {
+    appState.openCombobox = null;
+  }
+
+  syncComboboxDisplay(type);
+}
+
+function closeAllComboboxes(exceptType = null) {
+  ["state", "city"].forEach((type) => {
+    if (type !== exceptType) {
+      closeCombobox(type);
+    }
+  });
+}
+
+function selectComboboxOption(type, value, label) {
+  if (type === "state") {
+    appState.selectedState = value;
+    appState.stateQuery = "";
+    appState.selectedCity = "";
+    appState.cityQuery = "";
+    syncComboboxDisplay("state", label);
+    syncComboboxDisplay("city");
+    updateHiddenFilterValues();
+    updateCityDisabledState();
+    renderComboboxOptions("city");
+    closeCombobox("state");
+    stateFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    return;
+  }
+
+  appState.selectedCity = value;
+  appState.cityQuery = "";
+  syncComboboxDisplay("city", label);
+  updateHiddenFilterValues();
+  closeCombobox("city");
+  cityFilter.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function syncComboboxDisplay(type, selectedLabel = null) {
+  const { input } = getComboboxElements(type);
+  if (!input) {
+    return;
+  }
+
+  if (type === "state") {
+    input.value = appState.selectedState
+      ? selectedLabel ?? findOptionLabel(getStateOptions(), appState.selectedState)
+      : "";
+    input.placeholder = "All states";
+    return;
+  }
+
+  input.value = appState.selectedCity
+    ? selectedLabel ?? findOptionLabel(getCityOptions(), appState.selectedCity)
+    : "";
+  input.placeholder = appState.selectedState ? "All cities" : "Select a state first";
+}
+
+function findOptionLabel(options, value) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function updateHiddenFilterValues() {
+  stateFilter.value = appState.selectedState;
+  cityFilter.value = appState.selectedCity;
+}
+
+function updateCityDisabledState() {
+  const isDisabled = !appState.selectedState;
+  cityFilter.disabled = isDisabled;
+  cityCombobox?.classList.toggle("combobox-disabled", isDisabled);
+  cityCombobox?.querySelector(".combobox-shell")?.setAttribute("aria-disabled", String(isDisabled));
+  cityComboboxInput.disabled = isDisabled;
+  cityComboboxToggle.disabled = isDisabled;
+}
+
+function handleComboboxInput(type, value) {
+  if (type === "state") {
+    appState.stateQuery = value;
+  } else {
+    appState.cityQuery = value;
+  }
+
+  appState.highlightedComboboxIndex[type] = 0;
+  openCombobox(type);
+  renderComboboxOptions(type);
+}
+
+function handleComboboxKeydown(type, event) {
+  const options = getFilteredComboboxOptions(type);
+
+  if (event.key === "Escape") {
+    closeCombobox(type);
+    return;
+  }
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    openCombobox(type);
+    appState.highlightedComboboxIndex[type] = Math.min(
+      appState.highlightedComboboxIndex[type] + 1,
+      Math.max(options.length - 1, 0)
+    );
+    renderComboboxOptions(type);
+    return;
+  }
+
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    appState.highlightedComboboxIndex[type] = Math.max(
+      appState.highlightedComboboxIndex[type] - 1,
+      0
+    );
+    renderComboboxOptions(type);
+    return;
+  }
+
+  if (event.key === "Enter" && appState.openCombobox === type) {
+    event.preventDefault();
+    const option = options[appState.highlightedComboboxIndex[type]];
+    if (option) {
+      selectComboboxOption(type, option.value, option.label);
+    }
+  }
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+}
+
+function applyLocalFiltersAndSort() {
+  const query = appState.nameQuery.trim().toLowerCase();
+
+  appState.visibleResults = appState.allResults
+    .filter((facility) =>
+      query
+        ? String(facility.facility_name ?? "").toLowerCase().includes(query)
+        : true
+    )
+    .sort(compareFacilities);
+}
+
+function compareFacilities(left, right) {
+  const field = appState.sortBy;
+  const direction = appState.sortOrder === "asc" ? 1 : -1;
+  const numericFields = new Set([
+    "trust_score",
+    "warning_signal_count",
+    "support_signal_count",
+    "missing_signal_count",
+    "number_doctors",
+    "capacity",
+  ]);
+
+  if (field === "trust_label") {
+    return compareTrustLabels(left.trust_label, right.trust_label) * direction;
+  }
+
+  const leftValue = left[field];
+  const rightValue = right[field];
+
+  if (numericFields.has(field)) {
+    return (Number(leftValue ?? 0) - Number(rightValue ?? 0)) * direction;
+  }
+
+  return String(leftValue ?? "").localeCompare(String(rightValue ?? "")) * direction;
+}
+
+function compareTrustLabels(leftLabel, rightLabel) {
+  const trustOrder = {
+    Unverified: 0,
+    Weak: 1,
+    Mixed: 2,
+    Trusted: 3,
+  };
+
+  return (trustOrder[leftLabel] ?? -1) - (trustOrder[rightLabel] ?? -1);
+}
+
+function renderLoadMoreButton() {
+  const hasMore = appState.visibleCount < appState.visibleResults.length;
+  loadMoreButton.hidden = !hasMore;
+  loadMoreButton.disabled = false;
+}
+
+function updateCapabilityCards() {
+  capabilityCards.forEach((card) => {
+    const isSelected = card.dataset.capability === capabilityFilter.value;
+    card.classList.toggle("active", isSelected);
+    card.setAttribute("aria-pressed", String(isSelected));
+  });
+}
+
+function renderListLoading() {
+  resultCount.textContent = "Loading matches...";
+  loadMoreButton.hidden = true;
+  loadMoreButton.disabled = true;
+  facilityList.innerHTML = Array.from({ length: 3 })
+    .map(
+      () => `
+        <article class="skeleton-card">
+          <div>
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line medium"></div>
+          </div>
+          <div class="skeleton-score"></div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderDetailLoading() {
+  removeActiveMap();
+  selectedStatus.textContent = "Loading evidence...";
+  facilityDetail.innerHTML = `
+    <div class="detail-grid">
+      <article class="skeleton-card compact"></article>
+      <article class="skeleton-card compact"></article>
+      <article class="skeleton-card compact"></article>
+    </div>
+    <section class="evidence-section">
+      <div class="skeleton-line title"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line medium"></div>
+    </section>
+  `;
+  resetDetailScroll();
+}
+
+function resetDetailScroll() {
+  const scrollContainer = detailScroll || facilityDetail.parentElement;
+  if (!scrollContainer) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    scrollContainer.scrollTop = 0;
+  });
+}
+
 async function handleSaveReview(event) {
   event.preventDefault();
   const result = document.querySelector("#review-result");
@@ -286,6 +930,15 @@ function renderError(message) {
   facilityDetail.innerHTML = `<div class="error-state">${escapeHtml(message)}</div>`;
 }
 
+function handleLocalListChange() {
+  appState.nameQuery = facilityNameSearch.value;
+  appState.sortBy = sortBySelect.value;
+  appState.sortOrder = sortOrderSelect.value;
+  appState.visibleCount = appState.pageSize;
+  applyLocalFiltersAndSort();
+  renderFacilities();
+}
+
 filterForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -295,14 +948,97 @@ filterForm.addEventListener("submit", async (event) => {
   }
 });
 
-[capabilityFilter, stateFilter, cityFilter].forEach((filter) => {
-  filter.addEventListener("change", async () => {
+capabilityCards.forEach((card) => {
+  card.addEventListener("click", async () => {
+    capabilityFilter.value = card.dataset.capability;
+    updateCapabilityCards();
+
     try {
       await loadFacilities();
     } catch (error) {
       renderError(error.message);
     }
   });
+});
+
+stateFilter.addEventListener("change", async () => {
+  appState.selectedState = stateFilter.value;
+  appState.selectedCity = "";
+  appState.cityQuery = "";
+  updateHiddenFilterValues();
+  updateCityDisabledState();
+  syncComboboxDisplay("state");
+  syncComboboxDisplay("city");
+  renderComboboxOptions("city");
+
+  try {
+    await loadFacilities();
+  } catch (error) {
+    renderError(error.message);
+  }
+});
+
+cityFilter.addEventListener("change", async () => {
+  appState.selectedCity = cityFilter.value;
+  syncComboboxDisplay("city");
+
+  try {
+    await loadFacilities();
+  } catch (error) {
+    renderError(error.message);
+  }
+});
+
+stateComboboxInput.addEventListener("focus", () => openCombobox("state"));
+stateComboboxInput.addEventListener("click", () => openCombobox("state"));
+stateComboboxInput.addEventListener("input", (event) =>
+  handleComboboxInput("state", event.target.value)
+);
+stateComboboxInput.addEventListener("keydown", (event) =>
+  handleComboboxKeydown("state", event)
+);
+stateComboboxToggle.addEventListener("click", () => openCombobox("state"));
+
+cityComboboxInput.addEventListener("focus", () => openCombobox("city"));
+cityComboboxInput.addEventListener("click", () => openCombobox("city"));
+cityComboboxInput.addEventListener("input", (event) =>
+  handleComboboxInput("city", event.target.value)
+);
+cityComboboxInput.addEventListener("keydown", (event) =>
+  handleComboboxKeydown("city", event)
+);
+cityComboboxToggle.addEventListener("click", () => openCombobox("city"));
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".custom-combobox")) {
+    closeAllComboboxes();
+  }
+});
+
+document.addEventListener("click", (event) => {
+  const googleMapButton = event.target.closest(".google-map-link");
+  if (!googleMapButton) {
+    return;
+  }
+
+  event.preventDefault();
+  const url = googleMapButton.dataset.googleMapUrl;
+  if (!url) {
+    return;
+  }
+
+  if (window.confirm("Open this facility in Google Maps?")) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+});
+
+facilityNameSearch.addEventListener("input", handleLocalListChange);
+sortBySelect.addEventListener("change", handleLocalListChange);
+sortOrderSelect.addEventListener("change", handleLocalListChange);
+
+loadMoreButton.addEventListener("click", () => {
+  appState.visibleCount += appState.pageSize;
+  renderFacilities();
 });
 
 refreshButton.addEventListener("click", async () => {

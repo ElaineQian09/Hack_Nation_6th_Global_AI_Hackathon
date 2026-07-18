@@ -4,45 +4,202 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Data Legend - Facility Trust Desk</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="./css/styles.css" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.js"></script>
+    <script>
+      window.MAPBOX_PUBLIC_TOKEN = "";
+    </script>
+    <script src="./config.local.js"></script>
   </head>
   <body>
     <header class="app-header">
-      <div>
-        <p class="eyebrow">Public Health Planning Workspace</p>
-        <h1>Facility Trust Desk</h1>
-        <p class="subtitle">
-          Review facility capability claims with evidence receipts, uncertainty
-          signals, and saved planner decisions.
-        </p>
+      <div class="header-inner">
+        <a class="brand-lockup" href="./index.html" aria-label="Facility Trust Desk home">
+          <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M24 5 39 11v12c0 9.8-5.8 16.7-15 20-9.2-3.3-15-10.2-15-20V11L24 5Z" />
+            <path d="M18 24h12" />
+            <path d="M24 18v12" />
+            <path d="M28 34c3.7-1 6.1-3.2 7.1-6.6-3.8.2-6.6 2.4-8.3 6.6H28Z" />
+          </svg>
+          <span>
+            <strong>Facility Trust Desk</strong>
+            <em>Evidence-led care insights</em>
+          </span>
+        </a>
+
+        <nav class="top-nav" aria-label="Product navigation">
+          <a href="#filter-form">Evidence Search</a>
+          <a href="#facility-list">Review Queue</a>
+          <a href="#facility-detail">About</a>
+        </nav>
       </div>
     </header>
 
+    <section class="hero-band" aria-hidden="true"></section>
+
     <main class="page-shell">
       <section class="panel">
-        <div class="section-heading">
+        <div class="section-heading scope-heading">
           <div>
-            <h2>Review Scope</h2>
-            <p>Select a care capability and geography to rank facilities by evidence-backed trust.</p>
+            <h2>Choose care capability and location</h2>
           </div>
-          <span id="api-health" class="status-pill">Checking API...</span>
         </div>
 
-        <form id="filter-form" class="filter-grid">
-          <label>
-            Capability
-            <select id="capability-filter" name="capability"></select>
-          </label>
+        <section class="capability-selector" aria-label="Select capability">
+          <button
+            class="capability-card"
+            type="button"
+            data-capability="ICU"
+            aria-pressed="true"
+          >
+            <span class="capability-icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48">
+                <path d="M8 30h32" />
+                <path d="M12 30v7" />
+                <path d="M36 30v7" />
+                <path d="M13 24h10" />
+                <path d="M23 24l3-7 4 12 3-5h3" />
+                <rect x="10" y="11" width="28" height="19" rx="3" />
+              </svg>
+            </span>
+            <span class="capability-copy">
+              <strong>ICU</strong>
+              <em>Intensive Care Unit</em>
+              <span>Critical care evidence, equipment, and staffing signals.</span>
+            </span>
+            <span class="selected-indicator">Selected</span>
+          </button>
 
-          <label>
-            State
-            <select id="state-filter" name="state"></select>
-          </label>
+          <button
+            class="capability-card"
+            type="button"
+            data-capability="NICU"
+            aria-pressed="false"
+          >
+            <span class="capability-icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48">
+                <path d="M12 29c0-6.6 5.4-12 12-12s12 5.4 12 12" />
+                <path d="M17 29h14" />
+                <path d="M15 34h18" />
+                <path d="M18 38h12" />
+                <path d="M24 10v8" />
+                <path d="M20 14h8" />
+              </svg>
+            </span>
+            <span class="capability-copy">
+              <strong>NICU</strong>
+              <em>Neonatal Intensive Care Unit</em>
+              <span>Newborn critical-care and neonatal support signals.</span>
+            </span>
+            <span class="selected-indicator">Selected</span>
+          </button>
 
-          <label>
-            City
-            <select id="city-filter" name="city"></select>
-          </label>
+          <button
+            class="capability-card"
+            type="button"
+            data-capability="Emergency"
+            aria-pressed="false"
+          >
+            <span class="capability-icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48">
+                <path d="M8 31h5l4-7 5 12 5-18 4 13h9" />
+                <path d="M17 12h14" />
+                <path d="M24 5v14" />
+                <path d="M13 39h22" />
+                <path d="M18 39v-5" />
+                <path d="M30 39v-5" />
+              </svg>
+            </span>
+            <span class="capability-copy">
+              <strong>Emergency</strong>
+              <em>Emergency / Trauma Care</em>
+              <span>24/7 emergency, ambulance, and urgent-care signals.</span>
+            </span>
+            <span class="selected-indicator">Selected</span>
+          </button>
+        </section>
+
+        <form id="filter-form" class="filter-grid care-scope-grid">
+          <input id="capability-filter" name="capability" type="hidden" value="ICU" />
+          <input id="state-filter" name="state" type="hidden" value="" />
+          <input id="city-filter" name="city" type="hidden" value="" />
+
+          <div class="custom-combobox" data-combobox="state">
+            <label for="state-combobox-input">State</label>
+            <div
+              class="combobox-shell"
+              role="combobox"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-owns="state-combobox-list"
+            >
+              <span class="combobox-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 21s7-5.2 7-12a7 7 0 0 0-14 0c0 6.8 7 12 7 12Z" />
+                  <circle cx="12" cy="9" r="2.4" />
+                </svg>
+              </span>
+              <input
+                id="state-combobox-input"
+                class="combobox-input"
+                type="text"
+                placeholder="All states"
+                autocomplete="off"
+                role="searchbox"
+                aria-controls="state-combobox-list"
+              />
+              <button class="combobox-toggle" type="button" aria-label="Open state options">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m5 7.5 5 5 5-5" />
+                </svg>
+              </button>
+            </div>
+            <div id="state-combobox-list" class="combobox-menu" role="listbox" hidden></div>
+          </div>
+
+          <div class="custom-combobox combobox-disabled" data-combobox="city">
+            <label for="city-combobox-input">City</label>
+            <div
+              class="combobox-shell"
+              role="combobox"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-owns="city-combobox-list"
+              aria-disabled="true"
+            >
+              <span class="combobox-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M4 20h16" />
+                  <path d="M7 20V8l5-4 5 4v12" />
+                  <path d="M10 20v-6h4v6" />
+                  <path d="M9 10h.01" />
+                  <path d="M15 10h.01" />
+                </svg>
+              </span>
+              <input
+                id="city-combobox-input"
+                class="combobox-input"
+                type="text"
+                placeholder="Select a state first"
+                autocomplete="off"
+                role="searchbox"
+                aria-controls="city-combobox-list"
+                disabled
+              />
+              <button
+                class="combobox-toggle"
+                type="button"
+                aria-label="Open city options"
+                disabled
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m5 7.5 5 5 5-5" />
+                </svg>
+              </button>
+            </div>
+            <div id="city-combobox-list" class="combobox-menu" role="listbox" hidden></div>
+          </div>
 
           <button type="submit">Search Facilities</button>
         </form>
@@ -50,20 +207,67 @@
 
       <section class="summary-grid" id="summary-grid" aria-live="polite"></section>
 
+      <div class="section-transition" aria-hidden="true">
+        <div class="section-transition-line"></div>
+        <div class="section-transition-fade"></div>
+      </div>
+
       <section class="desk-layout">
-        <div class="panel">
-          <div class="section-heading">
+        <div class="panel ranked-panel">
+          <div class="section-heading ranked-heading">
             <div>
-              <h2>Ranked Facilities</h2>
-              <p id="result-count">Loading facilities...</p>
+              <h2>Facility matches</h2>
+              <p id="result-count">Top results</p>
             </div>
             <button id="refresh-button" type="button" class="secondary-button">Refresh</button>
           </div>
 
-          <div id="facility-list" class="facility-list" aria-live="polite"></div>
+          <div class="list-controls" aria-label="Ranked facility list controls">
+            <label>
+              Facility Name
+              <input
+                id="facility-name-search"
+                type="search"
+                placeholder="Search facilities by name"
+                autocomplete="off"
+              />
+            </label>
+
+            <label>
+              Sort By
+              <select id="sort-by">
+                <option value="trust_score">Trust Score</option>
+                <option value="trust_label">Trust Level</option>
+                <option value="facility_name">Facility Name</option>
+                <option value="warning_signal_count">Warnings</option>
+                <option value="support_signal_count">Evidence Count</option>
+              </select>
+            </label>
+
+            <label>
+              Order
+              <select id="sort-order">
+                <option value="desc">Desc</option>
+                <option value="asc">Asc</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="facility-list-scroll">
+            <div id="facility-list" class="facility-list" aria-live="polite"></div>
+            <div class="list-footer">
+              <button
+                id="load-more-button"
+                type="button"
+                class="secondary-button load-more-button"
+              >
+                Load More Facilities
+              </button>
+            </div>
+          </div>
         </div>
 
-        <aside class="panel">
+        <aside class="panel evidence-panel">
           <div class="section-heading">
             <div>
               <h2>Evidence Review</h2>
@@ -71,8 +275,10 @@
             </div>
           </div>
 
-          <div id="facility-detail" aria-live="polite">
-            <div class="empty-state">No facility selected.</div>
+          <div class="detail-scroll">
+            <div id="facility-detail" aria-live="polite">
+              <div class="empty-state">No facility selected.</div>
+            </div>
           </div>
         </aside>
       </section>

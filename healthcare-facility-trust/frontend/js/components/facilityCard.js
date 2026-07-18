@@ -12,7 +12,7 @@ export function renderFacilityCard(facility, selectedFacilityId, index) {
       data-facility-id="${escapeHtml(facility.facility_id)}"
     >
       <div>
-        <div class="facility-rank">Rank ${index + 1}</div>
+        <div class="facility-rank">#${index + 1}</div>
         <h3>${escapeHtml(facility.facility_name)}</h3>
         <div class="facility-meta">
           <span>${escapeHtml(facility.city)}, ${escapeHtml(facility.state)}</span>
@@ -22,15 +22,15 @@ export function renderFacilityCard(facility, selectedFacilityId, index) {
         <p>${escapeHtml(facility.reason_summary)}</p>
         <div class="tag-row">
           <span class="tag ${trustClass}">${escapeHtml(facility.trust_label)}</span>
-          <span class="tag ${confidenceClass}">${escapeHtml(facility.confidence_level)} confidence</span>
-          <span class="tag">${facility.support_signal_count} evidence</span>
-          <span class="flag">${facility.warning_signal_count} warnings</span>
+          <span class="tag ${confidenceClass}">${escapeHtml(facility.confidence_level)}</span>
+          <span class="tag">${escapeHtml(facility.support_signal_count)} evidence</span>
+          <span class="flag">${escapeHtml(facility.warning_signal_count)} warnings</span>
         </div>
       </div>
 
       <aside class="score-box">
         <span class="score-number">${escapeHtml(facility.trust_score)}</span>
-        <strong class="${trustClass}">trust score</strong>
+        <strong class="${trustClass}">Trust</strong>
       </aside>
     </button>
   `;

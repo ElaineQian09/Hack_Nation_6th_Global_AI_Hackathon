@@ -44,14 +44,18 @@ export function getSummary({ capability, state, city } = {}) {
   return request(`/api/summary${query ? `?${query}` : ""}`);
 }
 
-export function searchFacilities({ capability, state, city } = {}) {
-  const query = buildParams({ capability, state, city });
+export function searchFacilities({ capability, state, city, limit } = {}) {
+  const query = buildParams({ capability, state, city, limit });
   return request(`/api/facilities/search${query ? `?${query}` : ""}`);
 }
 
 export function getFacility(facilityId, { capability } = {}) {
   const query = buildParams({ capability });
   return request(`/api/facilities/${facilityId}${query ? `?${query}` : ""}`);
+}
+
+export function getFacilityMap(facilityId) {
+  return request(`/api/facilities/${facilityId}/map`);
 }
 
 export function getDataQuality({ capability } = {}) {
