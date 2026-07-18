@@ -6,9 +6,30 @@ Facility Trust Desk helps public-health planners evaluate whether a healthcare
 facility's claimed capabilities, such as ICU, NICU, or Emergency, are supported
 by available evidence.
 
-This first MVP only verifies frontend-to-backend API wiring. It intentionally
-does not include real data loading, Databricks access, cleaning logic, scoring
-logic, database models, service layers, auth, or LLM logic.
+This MVP verifies frontend-to-backend API wiring with a layered structure and
+mock data. It intentionally does not include real data loading, Databricks
+access, cleaning logic, scoring algorithms, database persistence, auth, or LLM
+logic.
+
+## Current structure
+
+```text
+backend/
+  main.py                 FastAPI app entrypoint
+  routes/                 API route declarations
+  controllers/            Request orchestration layer
+  services/               Mock business/data access layer
+  schemas/                Pydantic request/response shapes
+  data/                   Replaceable mock data
+
+frontend/
+  index.html              Dashboard list page
+  detail.html             Facility detail page
+  css/styles.css          Shared styling
+  js/services/            API client functions
+  js/components/          Reusable render helpers
+  js/pages/               Page-level behavior
+```
 
 ## Run the backend
 
@@ -29,4 +50,8 @@ cd healthcare-facility-trust/frontend
 python -m http.server 5173
 ```
 
-Open http://localhost:5173 and use the API Smoke Test buttons.
+Open http://localhost:5173.
+
+The dashboard shows filters, summary metrics, and all mock hospitals. Click
+`Open Detail` on a facility card to inspect the mock trust score, score reasons,
+data quality flags, and capability checklist.
