@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -11,4 +13,4 @@ class ReviewRequest(BaseModel):
 class ReviewResponse(BaseModel):
     status: str
     message: str
-    review: ReviewRequest
+    review: dict[str, Any]

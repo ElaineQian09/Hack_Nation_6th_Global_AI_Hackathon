@@ -1,31 +1,36 @@
-export function renderFacilityCard(facility) {
-  const trustClass = `trust-${facility.trustLevel.toLowerCase()}`;
-  const capabilityTags = facility.claimedCapabilities
-    .map((capability) => `<span class="tag">${capability}</span>`)
-    .join("");
-  const flags = facility.dataQualityFlags.length
-    ? facility.dataQualityFlags.map((flag) => `<span class="flag">${flag}</span>`).join("")
-    : `<span class="tag">No active flags</span>`;
+import { escapeHtml } from "../utils/html.js";
+
+export function renderFacilityCard(facility, selectedFacilityId) {
+  const trustClass = `trust-${facility.trust_label.toLowerCase()}`;
+  const confidenceClass = `trust-${facility.confidence_level.toLowerCase()}`;
+  const activeClass = facility.facility_id === selectedFacilityId ? "active" : "";
 
   return `
-    <article class="facility-card">
+    <button
+      type="button"
+      class="facility-card selectable ${activeClass}"
+      data-facility-id="${escapeHtml(facility.facility_id)}"
+    >
       <div>
-        <h3>${facility.name}</h3>
+        <h3>${escapeHtml(facility.facility_name)}</h3>
         <div class="facility-meta">
-          <span>${facility.type}</span>
-          <span>${facility.city}, ${facility.state}</span>
-          <span>${facility.bedCount ?? "Unknown"} beds</span>
+          <span>${escapeHtml(facility.city)}, ${escapeHtml(facility.state)}</span>
+          <span>${escapeHtml(facility.number_doctors ?? "Unknown")} doctors</span>
+          <span>${escapeHtml(facility.capacity ?? "Unknown")} beds</span>
         </div>
-        <p>${facility.summary}</p>
-        <div class="tag-row">${capabilityTags}</div>
-        <div class="flag-list">${flags}</div>
+        <p>${escapeHtml(facility.reason_summary)}</p>
+        <div class="tag-row">
+          <span class="tag ${trustClass}">${escapeHtml(facility.trust_label)}</span>
+          <span class="tag ${confidenceClass}">${escapeHtml(facility.confidence_level)} confidence</span>
+          <span class="tag">${facility.support_signal_count} evidence</span>
+          <span class="flag">${facility.warning_signal_count} warnings</span>
+        </div>
       </div>
 
       <aside class="score-box">
-        <span class="score-number">${facility.trustScore}</span>
-        <strong class="${trustClass}">${facility.trustLevel} Trust</strong>
-        <a class="button-link" href="./detail.html?id=${facility.id}">Open Detail</a>
+        <span class="score-number">${escapeHtml(facility.trust_score)}</span>
+        <strong class="${trustClass}">Trust Score</strong>
       </aside>
-    </article>
+    </button>
   `;
 }

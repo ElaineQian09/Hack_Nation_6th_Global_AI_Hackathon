@@ -8,5 +8,9 @@ router = APIRouter(prefix="/api", tags=["summary"])
 
 
 @router.get("/summary", response_model=SummaryResponse)
-def summary() -> dict:
-    return read_summary()
+def summary(
+    capability: str = "ICU",
+    state: str | None = None,
+    city: str | None = None,
+) -> dict:
+    return read_summary(capability=capability, state=state, city=city)

@@ -1,18 +1,26 @@
-from backend.data.mock_facilities import MOCK_FACILITIES
+from typing import Any
+
+from backend.services.facility_service import score_results
 
 
-def get_summary() -> dict:
-    # TODO: Replace mock aggregation with real facility and quality metrics later.
+def get_summary(
+    capability: str = "ICU",
+    state: str | None = None,
+    city: str | None = None,
+) -> dict[str, Any]:
+    results = score_results(capability, state, city)
+    trust_buckets = {label: 0 for label in ["Trusted", "Mixed", "Weak", "Unverified"]}
+    confidence_buckets = {label: 0 for label in ["High", "Medium", "Low"]}
+
+    for result in results:
+        trust_buckets[result["trust_label"]] += 1
+        confidence_buckets[result["confidence_level"]] += 1
+
     return {
-        "candidateCount": len(MOCK_FACILITIES),
-        "highTrustCount": _count_by_trust_level("High"),
-        "mediumTrustCount": _count_by_trust_level("Medium"),
-        "lowTrustCount": _count_by_trust_level("Low"),
-        "dataQualityFlagCount": sum(
-            len(facility["dataQualityFlags"]) for facility in MOCK_FACILITIES
-        ),
+        "capability": capability,
+        "facility_count": len(results),
+        "trust_buckets": trust_buckets,
+        "confidence_buckets": confidence_buckets,
+        "warning_count": sum(result["warning_signal_count"] for result in results),
+        "missing_signal_count": sum(result["missing_signal_count"] for result in results),
     }
-
-
-def _count_by_trust_level(level: str) -> int:
-    return sum(1 for facility in MOCK_FACILITIES if facility["trustLevel"] == level)

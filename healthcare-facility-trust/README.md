@@ -1,15 +1,14 @@
-# Data Legend — Facility Trust Desk
+# Data Legend - Facility Trust Desk
 
-Hack Nation 6th Global AI Hackathon MVP skeleton.
+Hack Nation 6th Global AI Hackathon project.
 
 Facility Trust Desk helps public-health planners evaluate whether a healthcare
-facility's claimed capabilities, such as ICU, NICU, or Emergency, are supported
-by available evidence.
+facility's claimed capabilities, such as ICU, NICU, Emergency, or Maternity, are
+supported by available evidence.
 
-This MVP verifies frontend-to-backend API wiring with a layered structure and
-mock data. It intentionally does not include real data loading, Databricks
-access, cleaning logic, scoring algorithms, database persistence, auth, or LLM
-logic.
+The current MVP includes a demo facility dataset, evidence-backed trust scoring,
+ranked facility search, citation-style evidence snippets, missing-context
+warnings, and saved planner review notes.
 
 ## Current structure
 
@@ -18,17 +17,18 @@ backend/
   main.py                 FastAPI app entrypoint
   routes/                 API route declarations
   controllers/            Request orchestration layer
-  services/               Mock business/data access layer
+  services/               Evidence scoring and review persistence
   schemas/                Pydantic request/response shapes
-  data/                   Replaceable mock data
 
 frontend/
-  index.html              Dashboard list page
-  detail.html             Facility detail page
+  index.html              Facility Trust Desk dashboard
   css/styles.css          Shared styling
   js/services/            API client functions
   js/components/          Reusable render helpers
   js/pages/               Page-level behavior
+
+sample_data/
+  demo_facilities.json    Demo records for local scoring and app development
 ```
 
 ## Run the backend
@@ -51,7 +51,3 @@ python -m http.server 5173
 ```
 
 Open http://localhost:5173.
-
-The dashboard shows filters, summary metrics, and all mock hospitals. Click
-`Open Detail` on a facility card to inspect the mock trust score, score reasons,
-data quality flags, and capability checklist.

@@ -100,7 +100,7 @@ h2 {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
   gap: 14px;
   align-items: end;
 }
@@ -186,14 +186,34 @@ button,
   gap: 14px;
 }
 
+.desk-layout {
+  display: grid;
+  grid-template-columns: minmax(420px, 0.9fr) minmax(460px, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
 .facility-card {
   display: grid;
   grid-template-columns: 1fr 180px;
   gap: 20px;
+  width: 100%;
   padding: 18px;
   border: 1px solid #e4e7ec;
   border-radius: 16px;
   background: #fcfdff;
+  color: inherit;
+  text-align: left;
+}
+
+.facility-card.selectable {
+  cursor: pointer;
+}
+
+.facility-card.selectable:hover,
+.facility-card.selectable.active {
+  border-color: #9db8a8;
+  background: #f6faf7;
 }
 
 .facility-meta,
@@ -246,16 +266,98 @@ button,
   line-height: 1;
 }
 
+.trust-trusted,
 .trust-high {
   color: #027a48;
 }
 
+.trust-mixed,
 .trust-medium {
   color: #b54708;
 }
 
+.trust-weak,
+.trust-unverified,
 .trust-low {
   color: #b42318;
+}
+
+.status-pill {
+  align-self: start;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.status-pill.ready {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mini-card,
+.evidence-item,
+.signal-item,
+.review-item {
+  padding: 12px;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  background: #fcfdff;
+}
+
+.mini-card span,
+.source {
+  display: block;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mini-card strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 20px;
+}
+
+.mini-card em,
+.evidence-item em,
+.review-item em {
+  color: #667085;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.evidence-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.evidence-section h3 {
+  margin-bottom: 0;
+}
+
+.evidence-item p,
+.signal-item,
+.review-item p {
+  margin-bottom: 0;
+  color: #344054;
+  line-height: 1.45;
+}
+
+.review-form {
+  display: grid;
+  gap: 12px;
 }
 
 .detail-layout {
@@ -355,6 +457,8 @@ button,
 @media (max-width: 860px) {
   .filter-grid,
   .facility-card,
+  .desk-layout,
+  .detail-grid,
   .detail-layout,
   .summary-grid {
     grid-template-columns: 1fr;

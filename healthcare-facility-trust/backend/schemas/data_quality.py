@@ -1,12 +1,10 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 
-class DataQualityIssue(BaseModel):
-    facilityId: str
-    facilityName: str
-    issue: str
-    severity: str
-
-
 class DataQualityResponse(BaseModel):
-    issues: list[DataQualityIssue]
+    capability: str
+    high_leverage_review_queue: list[dict[str, Any]]
+    sparse_records: list[dict[str, Any]]
+    message: str

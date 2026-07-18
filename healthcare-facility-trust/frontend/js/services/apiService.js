@@ -19,35 +19,44 @@ async function request(path, options = {}) {
     : response.text();
 }
 
+function buildParams(params) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      query.set(key, value);
+    }
+  });
+
+  return query.toString();
+}
+
+export function getHealth() {
+  return request("/api/health");
+}
+
 export function getFilters() {
   return request("/api/filters");
 }
 
-export function getSummary() {
-  return request("/api/summary");
+export function getSummary({ capability, state, city } = {}) {
+  const query = buildParams({ capability, state, city });
+  return request(`/api/summary${query ? `?${query}` : ""}`);
 }
 
-export function searchFacilities({ capability, state } = {}) {
-  const params = new URLSearchParams();
-
-  if (capability) {
-    params.set("capability", capability);
-  }
-
-  if (state) {
-    params.set("state", state);
-  }
-
-  const query = params.toString();
+export function searchFacilities({ capability, state, city } = {}) {
+  const query = buildParams({ capability, state, city });
   return request(`/api/facilities/search${query ? `?${query}` : ""}`);
 }
 
-export function getFacility(facilityId) {
-  return request(`/api/facilities/${facilityId}`);
+export function getFacility(facilityId, { capability } = {}) {
+  const query = buildParams({ capability });
+  return request(`/api/facilities/${facilityId}${query ? `?${query}` : ""}`);
 }
 
-export function getDataQuality() {
-  return request("/api/data-quality");
+export function getDataQuality({ capability } = {}) {
+  const query = buildParams({ capability });
+  return request(`/api/data-quality${query ? `?${query}` : ""}`);
 }
 
 export function saveReview(review) {

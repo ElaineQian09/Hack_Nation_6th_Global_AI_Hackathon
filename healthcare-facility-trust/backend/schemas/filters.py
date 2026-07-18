@@ -6,3 +6,4 @@ class FilterOptions(BaseModel):
     states: list[str]
     cities: list[str]
     trustLevels: list[str]
+    decisions: list[str]

@@ -2,8 +2,9 @@ from pydantic import BaseModel
 
 
 class SummaryResponse(BaseModel):
-    candidateCount: int
-    highTrustCount: int
-    mediumTrustCount: int
-    lowTrustCount: int
-    dataQualityFlagCount: int
+    capability: str
+    facility_count: int
+    trust_buckets: dict[str, int]
+    confidence_buckets: dict[str, int]
+    warning_count: int
+    missing_signal_count: int

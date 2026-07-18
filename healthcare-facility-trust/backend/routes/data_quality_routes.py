@@ -8,5 +8,5 @@ router = APIRouter(prefix="/api", tags=["data-quality"])
 
 
 @router.get("/data-quality", response_model=DataQualityResponse)
-def data_quality() -> dict:
-    return read_data_quality()
+def data_quality(capability: str = "ICU") -> dict:
+    return read_data_quality(capability=capability)

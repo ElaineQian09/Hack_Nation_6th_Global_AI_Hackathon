@@ -11,6 +11,7 @@ venv/
 
 # Streamlit
 .streamlit/secrets.toml
+.runtime/
 
 # OS / Editor
 .DS_Store

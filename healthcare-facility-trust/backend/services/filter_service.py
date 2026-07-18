@@ -1,22 +1,14 @@
-from backend.data.mock_facilities import MOCK_FACILITIES
+from backend.services.facility_service import CAPABILITY_RULES
+from backend.services.facility_service import load_facilities
 
 
 def get_filter_options() -> dict:
-    # TODO: Replace mock option extraction with real metadata queries later.
-    capabilities = sorted(
-        {
-            capability
-            for facility in MOCK_FACILITIES
-            for capability in facility["claimedCapabilities"]
-        }
-    )
-    states = sorted({facility["state"] for facility in MOCK_FACILITIES})
-    cities = sorted({facility["city"] for facility in MOCK_FACILITIES})
-    trust_levels = ["High", "Medium", "Low"]
+    facilities = load_facilities()
 
     return {
-        "capabilities": capabilities,
-        "states": states,
-        "cities": cities,
-        "trustLevels": trust_levels,
+        "capabilities": list(CAPABILITY_RULES.keys()),
+        "states": sorted({facility["address_stateOrRegion"] for facility in facilities}),
+        "cities": sorted({facility["address_city"] for facility in facilities}),
+        "trustLevels": ["Trusted", "Mixed", "Weak", "Unverified"],
+        "decisions": ["Accept", "Needs Review", "Reject Claim", "Override as Trusted"],
     }

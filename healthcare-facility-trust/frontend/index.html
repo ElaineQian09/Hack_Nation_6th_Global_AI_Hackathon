@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Data Legend — Facility Trust Desk</title>
+    <title>Data Legend - Facility Trust Desk</title>
     <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
     <header class="app-header">
       <div>
         <p class="eyebrow">Public Health Planning MVP</p>
-        <h1>Data Legend — Facility Trust Desk</h1>
+        <h1>Facility Trust Desk</h1>
         <p class="subtitle">
-          Evaluate whether healthcare facility capability claims are supported by
-          evidence, quality checks, and reviewer decisions.
+          Rank healthcare facility capability claims by evidence, uncertainty,
+          and planner review decisions.
         </p>
       </div>
     </header>
@@ -23,8 +23,9 @@
         <div class="section-heading">
           <div>
             <h2>Facility Filters</h2>
-            <p>Use these placeholders to narrow the mock facility list.</p>
+            <p>Select a capability and geography to review evidence-backed trust.</p>
           </div>
+          <span id="api-health" class="status-pill">Checking API...</span>
         </div>
 
         <form id="filter-form" class="filter-grid">
@@ -38,22 +39,42 @@
             <select id="state-filter" name="state"></select>
           </label>
 
+          <label>
+            City
+            <select id="city-filter" name="city"></select>
+          </label>
+
           <button type="submit">Search Facilities</button>
         </form>
       </section>
 
       <section class="summary-grid" id="summary-grid" aria-live="polite"></section>
 
-      <section class="panel">
-        <div class="section-heading">
-          <div>
-            <h2>All Facilities</h2>
-            <p>Ranked by mock trust score. Click a facility to inspect evidence.</p>
+      <section class="desk-layout">
+        <div class="panel">
+          <div class="section-heading">
+            <div>
+              <h2>Ranked Facilities</h2>
+              <p id="result-count">Loading facilities...</p>
+            </div>
+            <button id="refresh-button" type="button" class="secondary-button">Refresh</button>
           </div>
-          <button id="refresh-button" type="button" class="secondary-button">Refresh</button>
+
+          <div id="facility-list" class="facility-list" aria-live="polite"></div>
         </div>
 
-        <div id="facility-list" class="facility-list" aria-live="polite"></div>
+        <aside class="panel">
+          <div class="section-heading">
+            <div>
+              <h2>Evidence Review</h2>
+              <p id="selected-status">Select a facility to inspect receipts.</p>
+            </div>
+          </div>
+
+          <div id="facility-detail" aria-live="polite">
+            <div class="empty-state">No facility selected.</div>
+          </div>
+        </aside>
       </section>
     </main>
 
