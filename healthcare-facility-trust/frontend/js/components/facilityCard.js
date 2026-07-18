@@ -1,6 +1,6 @@
 import { escapeHtml } from "../utils/html.js";
 
-export function renderFacilityCard(facility, selectedFacilityId) {
+export function renderFacilityCard(facility, selectedFacilityId, index) {
   const trustClass = `trust-${facility.trust_label.toLowerCase()}`;
   const confidenceClass = `trust-${facility.confidence_level.toLowerCase()}`;
   const activeClass = facility.facility_id === selectedFacilityId ? "active" : "";
@@ -12,6 +12,7 @@ export function renderFacilityCard(facility, selectedFacilityId) {
       data-facility-id="${escapeHtml(facility.facility_id)}"
     >
       <div>
+        <div class="facility-rank">Rank ${index + 1}</div>
         <h3>${escapeHtml(facility.facility_name)}</h3>
         <div class="facility-meta">
           <span>${escapeHtml(facility.city)}, ${escapeHtml(facility.state)}</span>
@@ -29,7 +30,7 @@ export function renderFacilityCard(facility, selectedFacilityId) {
 
       <aside class="score-box">
         <span class="score-number">${escapeHtml(facility.trust_score)}</span>
-        <strong class="${trustClass}">Trust Score</strong>
+        <strong class="${trustClass}">trust score</strong>
       </aside>
     </button>
   `;

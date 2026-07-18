@@ -24,6 +24,7 @@ const apiHealth = document.querySelector("#api-health");
 const appState = {
   filters: null,
   results: [],
+  totalFacilities: 0,
   selectedFacilityId: null,
 };
 
@@ -62,6 +63,7 @@ function renderOptions(defaultLabel, values) {
 }
 
 function renderSummary(summary) {
+  appState.totalFacilities = summary.facility_count;
   summaryGrid.innerHTML = `
     ${renderSummaryCard("Facilities", summary.facility_count)}
     ${renderSummaryCard("Trusted", summary.trust_buckets.Trusted)}
@@ -104,10 +106,10 @@ async function loadFacilities() {
 }
 
 function renderFacilities() {
-  resultCount.textContent = `${appState.results.length} result${appState.results.length === 1 ? "" : "s"}`;
+  resultCount.textContent = `Showing top ${appState.results.length} of ${appState.totalFacilities} facilities, ranked by ${currentFilters().capability} trust score`;
   facilityList.innerHTML = appState.results.length
     ? appState.results
-        .map((facility) => renderFacilityCard(facility, appState.selectedFacilityId))
+        .map((facility, index) => renderFacilityCard(facility, appState.selectedFacilityId, index))
         .join("")
     : `<div class="empty-state">No facilities match the selected filters.</div>`;
 
@@ -151,6 +153,7 @@ function renderFacilityDetail(payload) {
     </div>
 
     <section class="evidence-section">
+      <span class="section-kicker">Assessment</span>
       <h3>${escapeHtml(assessment.facility_name)}</h3>
       <p>${escapeHtml(assessment.reason_summary)}</p>
       <div class="facility-meta">
@@ -173,6 +176,7 @@ function renderFacilityDetail(payload) {
 function renderEvidenceSection(title, evidence) {
   return `
     <section class="evidence-section">
+      <span class="section-kicker">Receipts</span>
       <h3>${escapeHtml(title)}</h3>
       ${
         evidence.length
@@ -196,6 +200,7 @@ function renderEvidenceSection(title, evidence) {
 function renderSignalSection(title, signals, emptyText) {
   return `
     <section class="evidence-section">
+      <span class="section-kicker">Review Signals</span>
       <h3>${escapeHtml(title)}</h3>
       ${
         signals.length
@@ -211,6 +216,7 @@ function renderReviewForm() {
 
   return `
     <section class="evidence-section">
+      <span class="section-kicker">Human Override</span>
       <h3>Planner Review</h3>
       <form id="review-form" class="review-form">
         <label>
@@ -235,6 +241,7 @@ function renderReviewForm() {
 function renderSavedReviews(reviews) {
   return `
     <section class="evidence-section">
+      <span class="section-kicker">Memory</span>
       <h3>Saved Reviews</h3>
       ${
         reviews.length
