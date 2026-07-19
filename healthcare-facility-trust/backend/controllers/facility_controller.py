@@ -1,3 +1,4 @@
+from backend.services.databricks_ai_service import generate_ai_summary
 from backend.services.facility_service import get_facility_detail
 from backend.services.facility_service import search_facilities
 
@@ -28,3 +29,7 @@ def list_facilities(
 
 def read_facility(facility_id: str, capability: str | None = None) -> dict:
     return get_facility_detail(facility_id, capability=capability)
+
+
+def read_ai_summary(facility_id: str, capability: str | None = None) -> dict:
+    return generate_ai_summary(facility_id, capability=capability)

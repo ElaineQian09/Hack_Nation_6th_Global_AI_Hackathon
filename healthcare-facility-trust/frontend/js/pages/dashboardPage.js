@@ -1,4 +1,5 @@
 import {
+  generateAiSummary,
   getConfig,
   getFacility,
   getFacilityMap,
@@ -279,6 +280,7 @@ function renderFacilityDetail(payload) {
     </section>
 
     ${renderFacilityLocationSection()}
+    ${renderAiSummarySection()}
     ${renderEvidenceSection("Evidence Receipts", assessment.evidence_snippets)}
     ${renderSignalSection("Warnings", assessment.warning_signals, "No warning signals found.")}
     ${renderSignalSection("Missing Context", assessment.missing_signals, "No critical context gaps found.")}
@@ -287,6 +289,7 @@ function renderFacilityDetail(payload) {
   `;
 
   document.querySelector("#review-form").addEventListener("submit", handleSaveReview);
+  document.querySelector("#generate-ai-summary-button")?.addEventListener("click", handleGenerateAiSummary);
 }
 
 function renderFacilityLocationSection() {
@@ -297,6 +300,22 @@ function renderFacilityLocationSection() {
       <div id="facility-map-content">
         <p class="empty-state">Loading location...</p>
       </div>
+    </section>
+  `;
+}
+
+function renderAiSummarySection() {
+  return `
+    <section class="evidence-section ai-summary-section">
+      <span class="section-kicker">Databricks AI</span>
+      <h3>AI Evidence Summary</h3>
+      <p class="ai-summary-copy">
+        Generate a short evidence-grounded summary for this facility and selected capability.
+      </p>
+      <button id="generate-ai-summary-button" type="button" class="secondary-button ai-summary-button">
+        Generate AI Summary
+      </button>
+      <div id="ai-summary-result" class="ai-summary-result" aria-live="polite"></div>
     </section>
   `;
 }
@@ -1012,6 +1031,35 @@ async function handleSaveReview(event) {
     await selectFacility(appState.selectedFacilityId);
   } catch (error) {
     result.textContent = error.message;
+  }
+}
+
+async function handleGenerateAiSummary() {
+  const button = document.querySelector("#generate-ai-summary-button");
+  const result = document.querySelector("#ai-summary-result");
+  if (!button || !result || !appState.selectedFacilityId) {
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Generating...";
+  result.classList.remove("error-state");
+  result.classList.add("loading");
+  result.textContent = "Generating Databricks AI summary...";
+
+  try {
+    const payload = await generateAiSummary(appState.selectedFacilityId, {
+      capability: currentFilters().capability,
+    });
+    result.classList.remove("loading");
+    result.textContent = payload.summary || "AI summary is unavailable right now.";
+  } catch (error) {
+    result.classList.remove("loading");
+    result.classList.add("error-state");
+    result.textContent = "AI summary is unavailable right now.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Generate AI Summary";
   }
 }
 

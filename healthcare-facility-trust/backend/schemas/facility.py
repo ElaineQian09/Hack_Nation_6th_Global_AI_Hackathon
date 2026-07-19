@@ -66,3 +66,14 @@ class FacilityDetailResponse(BaseModel):
     facility: dict[str, Any]
     assessment: FacilityAssessment
     reviews: list[dict[str, Any]]
+
+
+class AiSummaryRequest(BaseModel):
+    capability: str | None = None
+
+
+class AiSummaryResponse(BaseModel):
+    facilityId: str
+    capability: str
+    summary: str
+    available: bool

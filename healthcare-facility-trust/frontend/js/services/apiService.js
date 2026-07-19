@@ -87,6 +87,13 @@ export function getFacilityMap(facilityId) {
   return request(`/api/facilities/${facilityId}/map`);
 }
 
+export function generateAiSummary(facilityId, { capability } = {}) {
+  return request(`/api/facilities/${facilityId}/ai-summary`, {
+    method: "POST",
+    body: JSON.stringify({ capability }),
+  });
+}
+
 export function getDataQuality({ capability } = {}) {
   const query = buildParams({ capability });
   return request(`/api/data-quality${query ? `?${query}` : ""}`);

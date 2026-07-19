@@ -1,7 +1,10 @@
 from fastapi import APIRouter
 
 from backend.controllers.facility_controller import list_facilities
+from backend.controllers.facility_controller import read_ai_summary
 from backend.controllers.facility_controller import read_facility
+from backend.schemas.facility import AiSummaryRequest
+from backend.schemas.facility import AiSummaryResponse
 from backend.schemas.facility import FacilityDetailResponse
 from backend.schemas.facility import FacilitySearchResponse
 
@@ -37,3 +40,8 @@ def search(
 @router.get("/{facility_id}", response_model=FacilityDetailResponse)
 def detail(facility_id: str, capability: str | None = None) -> dict:
     return read_facility(facility_id, capability=capability)
+
+
+@router.post("/{facility_id}/ai-summary", response_model=AiSummaryResponse)
+def ai_summary(facility_id: str, payload: AiSummaryRequest) -> dict:
+    return read_ai_summary(facility_id, capability=payload.capability)

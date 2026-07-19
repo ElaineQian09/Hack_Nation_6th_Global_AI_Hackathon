@@ -142,6 +142,8 @@ Permission: Can read
 env:
   - name: MAPBOX_TOKEN
     valueFrom: mapbox_token
+  - name: DATABRICKS_AI_ENDPOINT
+    valueFrom: ai_model
 ```
 
 The public config endpoint `GET /api/config` returns:
@@ -157,6 +159,34 @@ shows a clean unavailable state instead of crashing.
 
 Optional placeholders are documented in `.env.example`.
 
+## Databricks AI Evidence Summary
+
+The Evidence Review panel includes a manual `Generate AI Summary` button. It
+does not run automatically for every facility or every search result.
+
+The backend route is:
+
+```text
+POST /api/facilities/{facility_id}/ai-summary
+```
+
+The route uses the Databricks SDK and reads the serving endpoint from:
+
+```text
+DATABRICKS_AI_ENDPOINT
+```
+
+For the Databricks App, configure the serving endpoint resource:
+
+```text
+Serving endpoint: databricks-gpt-5-6-luna
+Permission: Can query
+Resource key: ai_model
+```
+
+If `DATABRICKS_AI_ENDPOINT` is missing or the endpoint call fails, the dashboard
+shows a clean unavailable message and the rest of the app continues to work.
+
 ## Troubleshooting
 
 - If the frontend loads but API calls fail, check that requests use same-origin
@@ -167,5 +197,7 @@ Optional placeholders are documented in `.env.example`.
 - If Mapbox is blank, check `MAPBOX_TOKEN` and that the map container has
   visible height.
 - If backend geocoding fails, check `MAPBOX_TOKEN`.
+- If AI summary is unavailable in Databricks, check the `ai_model` app resource
+  and `DATABRICKS_AI_ENDPOINT`.
 - If review persistence fails, confirm the runtime can create the local
   `.runtime/` directory.
