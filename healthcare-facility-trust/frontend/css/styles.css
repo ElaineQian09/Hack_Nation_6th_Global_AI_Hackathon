@@ -1121,6 +1121,94 @@ button:hover,
   color: var(--muted);
 }
 
+.ai-review-card {
+  display: grid;
+  gap: 12px;
+}
+
+.ai-review-card.unavailable {
+  color: var(--mixed);
+}
+
+.ai-review-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag.trust-supported,
+.tag.trust-high {
+  color: var(--trusted);
+  background: var(--trusted-soft);
+}
+
+.tag.trust-partially_supported,
+.tag.trust-medium {
+  color: #9a5b00;
+  background: #fff4e5;
+}
+
+.tag.trust-inconsistent,
+.tag.trust-insufficient_data,
+.tag.trust-low {
+  color: var(--weak);
+  background: var(--weak-soft);
+}
+
+.ai-disclaimer {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ai-review-block {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-review-block > strong {
+  color: var(--text);
+}
+
+.ai-review-block ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ai-citation {
+  padding: 10px;
+  border: 1px solid var(--divider);
+  border-radius: 2px;
+  background: #fbfcfb;
+}
+
+.ai-citation span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ai-citation.contradicts span {
+  color: var(--weak);
+}
+
+.empty-state.compact {
+  padding: 8px 10px;
+}
+
+.debug-expander {
+  color: var(--muted);
+}
+
+.debug-expander summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
 .map-card {
   padding: 0;
   border: 0;

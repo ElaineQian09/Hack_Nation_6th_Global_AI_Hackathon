@@ -62,6 +62,7 @@ const appState = {
   stateQuery: "",
   cityQuery: "",
   openCombobox: null,
+  aiReviews: {},
   highlightedComboboxIndex: {
     state: 0,
     city: 0,
@@ -305,17 +306,21 @@ function renderFacilityLocationSection() {
 }
 
 function renderAiSummarySection() {
+  const cacheKey = aiReviewCacheKey();
+  const cachedReview = appState.aiReviews[cacheKey];
   return `
     <section class="evidence-section ai-summary-section">
       <span class="section-kicker">Databricks AI</span>
-      <h3>AI Evidence Summary</h3>
+      <h3>AI Evidence Review</h3>
       <p class="ai-summary-copy">
-        Generate a short evidence-grounded summary for this facility and selected capability.
+        This review evaluates support in the available dataset. It is not a clinical certification of the facility.
       </p>
       <button id="generate-ai-summary-button" type="button" class="secondary-button ai-summary-button">
-        Generate AI Summary
+        Generate AI explanation
       </button>
-      <div id="ai-summary-result" class="ai-summary-result" aria-live="polite"></div>
+      <div id="ai-summary-result" class="ai-summary-result" aria-live="polite">
+        ${cachedReview ? renderAiReview(cachedReview) : ""}
+      </div>
     </section>
   `;
 }
@@ -1045,22 +1050,91 @@ async function handleGenerateAiSummary() {
   button.textContent = "Generating...";
   result.classList.remove("error-state");
   result.classList.add("loading");
-  result.textContent = "Generating Databricks AI summary...";
+  result.textContent = "Generating Databricks AI evidence review...";
 
   try {
     const payload = await generateAiSummary(appState.selectedFacilityId, {
       capability: currentFilters().capability,
     });
+    appState.aiReviews[aiReviewCacheKey()] = payload;
     result.classList.remove("loading");
-    result.textContent = payload.summary || "AI summary is unavailable right now.";
+    result.innerHTML = renderAiReview(payload);
   } catch (error) {
     result.classList.remove("loading");
     result.classList.add("error-state");
-    result.textContent = "AI summary is unavailable right now.";
+    result.textContent = "AI Evidence Review is unavailable right now.";
   } finally {
     button.disabled = false;
-    button.textContent = "Generate AI Summary";
+    button.textContent = "Generate AI explanation";
   }
+}
+
+function aiReviewCacheKey() {
+  return `${appState.selectedFacilityId || "none"}::${currentFilters().capability}`;
+}
+
+function renderAiReview(review) {
+  const rejected = review.rejected_citations || [];
+  const citations = review.citations || [];
+  const missing = review.missing_information || [];
+  const warnings = review.warnings || [];
+
+  return `
+    <div class="ai-review-card ${review.available ? "" : "unavailable"}">
+      <div class="ai-review-header">
+        <span class="tag trust-${escapeHtml(review.verdict)}">${escapeHtml(review.verdict || "insufficient_data")}</span>
+        <span class="tag trust-${escapeHtml(review.confidence)}">${escapeHtml(review.confidence || "low")} confidence</span>
+      </div>
+      <p class="ai-disclaimer">${escapeHtml(review.disclaimer || "This review evaluates support in the available dataset. It is not a clinical certification of the facility.")}</p>
+      <p>${escapeHtml(review.explanation || "No AI explanation is available.")}</p>
+      ${renderAiCitationList("Verified citations", citations)}
+      ${renderAiList("Missing information", missing)}
+      ${renderAiList("Warnings", warnings)}
+      ${
+        rejected.length
+          ? `<details class="debug-expander">
+              <summary>Rejected citations for debugging (${rejected.length})</summary>
+              ${renderAiCitationList("Rejected citations", rejected)}
+            </details>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+function renderAiCitationList(title, citations) {
+  return `
+    <div class="ai-review-block">
+      <strong>${escapeHtml(title)}</strong>
+      ${
+        citations.length
+          ? citations
+              .map(
+                (citation) => `
+                  <article class="ai-citation ${escapeHtml(citation.relation)}">
+                    <span>${escapeHtml(citation.source_field)} · ${escapeHtml(citation.relation)}</span>
+                    <p>${escapeHtml(citation.exact_quote)}</p>
+                  </article>
+                `
+              )
+              .join("")
+          : `<p class="empty-state compact">None.</p>`
+      }
+    </div>
+  `;
+}
+
+function renderAiList(title, items) {
+  return `
+    <div class="ai-review-block">
+      <strong>${escapeHtml(title)}</strong>
+      ${
+        items.length
+          ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+          : `<p class="empty-state compact">None.</p>`
+      }
+    </div>
+  `;
 }
 
 function renderError(message) {

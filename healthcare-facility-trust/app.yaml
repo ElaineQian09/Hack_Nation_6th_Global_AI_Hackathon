@@ -11,3 +11,5 @@ env:
     value: pk.eyJ1IjoianNkZ2ZoM3kiLCJhIjoiY21ycjNqaWRnMDc4azJ4cHBycGs0eXllNSJ9._Ref0Sh_SAF_hbqc_vsDbQ
   - name: DATABRICKS_AI_ENDPOINT
     valueFrom: ai_model
+  - name: SERVING_ENDPOINT
+    valueFrom: validator-model

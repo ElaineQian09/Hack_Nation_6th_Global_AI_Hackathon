@@ -75,5 +75,12 @@ class AiSummaryRequest(BaseModel):
 class AiSummaryResponse(BaseModel):
     facilityId: str
     capability: str
-    summary: str
     available: bool
+    disclaimer: str
+    verdict: str
+    confidence: str
+    explanation: str
+    citations: list[dict[str, Any]]
+    rejected_citations: list[dict[str, Any]]
+    missing_information: list[str]
+    warnings: list[str]

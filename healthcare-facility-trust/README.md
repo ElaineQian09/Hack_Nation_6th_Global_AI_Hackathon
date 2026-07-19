@@ -142,8 +142,8 @@ Permission: Can read
 env:
   - name: MAPBOX_TOKEN
     valueFrom: mapbox_token
-  - name: DATABRICKS_AI_ENDPOINT
-    valueFrom: ai_model
+  - name: SERVING_ENDPOINT
+    valueFrom: validator-model
 ```
 
 The public config endpoint `GET /api/config` returns:
@@ -159,9 +159,9 @@ shows a clean unavailable state instead of crashing.
 
 Optional placeholders are documented in `.env.example`.
 
-## Databricks AI Evidence Summary
+## Databricks AI Evidence Review
 
-The Evidence Review panel includes a manual `Generate AI Summary` button. It
+The Evidence Review panel includes a manual `Generate AI explanation` button. It
 does not run automatically for every facility or every search result.
 
 The backend route is:
@@ -170,22 +170,28 @@ The backend route is:
 POST /api/facilities/{facility_id}/ai-summary
 ```
 
-The route uses the Databricks SDK and reads the serving endpoint from:
+The route uses `databricks-openai` with Databricks App runtime identity and reads
+the serving endpoint from:
 
 ```text
-DATABRICKS_AI_ENDPOINT
+SERVING_ENDPOINT
 ```
 
 For the Databricks App, configure the serving endpoint resource:
 
 ```text
-Serving endpoint: databricks-gpt-5-6-luna
+Settings -> Resources -> Add resource -> Serving endpoint
 Permission: Can query
-Resource key: ai_model
+Resource key: validator-model
 ```
 
-If `DATABRICKS_AI_ENDPOINT` is missing or the endpoint call fails, the dashboard
-shows a clean unavailable message and the rest of the app continues to work.
+Then redeploy the App.
+
+The AI review validates whether the selected facility record supports the
+selected capability. It does not replace the deterministic trust score and does
+not certify the real-world medical capability of the facility. AI citations are
+deterministically checked against the supplied fields before display. Rejected
+citations are shown only in a collapsed debugging expander.
 
 ## Troubleshooting
 
@@ -197,7 +203,7 @@ shows a clean unavailable message and the rest of the app continues to work.
 - If Mapbox is blank, check `MAPBOX_TOKEN` and that the map container has
   visible height.
 - If backend geocoding fails, check `MAPBOX_TOKEN`.
-- If AI summary is unavailable in Databricks, check the `ai_model` app resource
-  and `DATABRICKS_AI_ENDPOINT`.
+- If AI Evidence Review is unavailable in Databricks, check the
+  `validator-model` app resource and `SERVING_ENDPOINT`.
 - If review persistence fails, confirm the runtime can create the local
   `.runtime/` directory.
