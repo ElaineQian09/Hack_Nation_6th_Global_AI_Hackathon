@@ -37,6 +37,7 @@ const previousPageButton = document.querySelector("#previous-page-button");
 const nextPageButton = document.querySelector("#next-page-button");
 const pageStatus = document.querySelector("#page-status");
 const paginationLoading = document.querySelector("#pagination-loading");
+const searchButton = filterForm.querySelector('button[type="submit"]');
 
 let activeMap = null;
 
@@ -179,6 +180,7 @@ async function loadFacilities() {
   appState.nextOffset = searchResponse.nextOffset ?? appState.allResults.length;
   appState.hasMore = Boolean(searchResponse.hasMore);
   appState.isLoadingList = false;
+  setSearchControlsLoading(false);
   renderSummary(summaryResponse);
   renderCityOptions();
   appState.selectedFacilityId = appState.allResults[0]?.facility_id ?? null;
@@ -855,20 +857,24 @@ async function fetchNextResultsBatch() {
   appState.isLoadingNextBatch = true;
   renderPaginationControls();
 
-  const response = await searchFacilities({
-    ...currentFilters(),
-    name: appState.nameQuery,
-    sortBy: appState.sortBy,
-    sortOrder: appState.sortOrder,
-    offset: appState.nextOffset,
-    limit: appState.backendBatchSize,
-  });
+  try {
+    const response = await searchFacilities({
+      ...currentFilters(),
+      name: appState.nameQuery,
+      sortBy: appState.sortBy,
+      sortOrder: appState.sortOrder,
+      offset: appState.nextOffset,
+      limit: appState.backendBatchSize,
+    });
 
-  appState.allResults = [...appState.allResults, ...(response.results ?? [])];
-  appState.totalMatching = response.total ?? appState.totalMatching;
-  appState.nextOffset = response.nextOffset ?? appState.allResults.length;
-  appState.hasMore = Boolean(response.hasMore);
-  appState.isLoadingNextBatch = false;
+    appState.allResults = [...appState.allResults, ...(response.results ?? [])];
+    appState.totalMatching = response.total ?? appState.totalMatching;
+    appState.nextOffset = response.nextOffset ?? appState.allResults.length;
+    appState.hasMore = Boolean(response.hasMore);
+  } finally {
+    appState.isLoadingNextBatch = false;
+    renderPaginationControls();
+  }
 }
 
 async function goToNextPage() {
@@ -915,11 +921,14 @@ function updateCapabilityCards() {
 
 function renderListLoading() {
   resultCount.textContent = "Loading matches...";
+  setSearchControlsLoading(true);
   previousPageButton.disabled = true;
   nextPageButton.disabled = true;
   pageStatus.textContent = "Loading results";
   paginationLoading.hidden = true;
-  facilityList.innerHTML = Array.from({ length: 3 })
+  facilityList.innerHTML = `
+    ${renderScoringLoading()}
+    ${Array.from({ length: 3 })
     .map(
       () => `
         <article class="skeleton-card">
@@ -933,7 +942,29 @@ function renderListLoading() {
         </article>
       `
     )
-    .join("");
+    .join("")}
+  `;
+}
+
+function renderScoringLoading() {
+  return `
+    <div class="search-scoring-loading" role="status" aria-live="polite">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <div>
+        <strong>Scoring all sources in the selected range. This may take a moment.</strong>
+        <p>Scoring evidence sources for the selected filters. This may take a moment.</p>
+      </div>
+    </div>
+  `;
+}
+
+function setSearchControlsLoading(isLoading) {
+  searchButton.disabled = isLoading;
+  refreshButton.disabled = isLoading;
+  capabilityCards.forEach((card) => {
+    card.disabled = isLoading;
+  });
+  searchButton.textContent = isLoading ? "Scoring..." : "Search Facilities";
 }
 
 function renderDetailLoading() {
@@ -987,6 +1018,7 @@ async function handleSaveReview(event) {
 function renderError(message) {
   appState.isLoadingList = false;
   appState.isLoadingNextBatch = false;
+  setSearchControlsLoading(false);
   facilityList.innerHTML = `<div class="error-state">${escapeHtml(message)}</div>`;
   facilityDetail.innerHTML = `<div class="error-state">${escapeHtml(message)}</div>`;
   renderPaginationControls();

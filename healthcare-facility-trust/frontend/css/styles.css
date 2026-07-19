@@ -1282,6 +1282,50 @@ button:hover,
   font-size: 12px;
 }
 
+.search-scoring-loading {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(15, 95, 74, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(231, 245, 239, 0.88), rgba(255, 255, 255, 0.96)),
+    #ffffff;
+  box-shadow: 0 10px 26px rgba(16, 26, 22, 0.07);
+}
+
+.search-scoring-loading strong {
+  display: block;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.search-scoring-loading p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 3px solid rgba(15, 95, 74, 0.16);
+  border-top-color: var(--primary);
+  border-radius: 999px;
+  animation: spin 0.85s linear infinite;
+}
+
+.pagination-loading-note {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
@@ -1354,6 +1398,18 @@ button:disabled {
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner {
+    animation: none;
   }
 }
 
@@ -1448,6 +1504,11 @@ button:disabled {
   .results-pagination {
     width: 100%;
     grid-template-columns: 1fr;
+  }
+
+  .search-scoring-loading {
+    align-items: flex-start;
+    padding: 14px;
   }
 
   .ranked-panel {
