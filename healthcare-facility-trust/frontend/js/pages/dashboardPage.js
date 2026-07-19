@@ -1,4 +1,5 @@
 import {
+  getConfig,
   getFacility,
   getFacilityMap,
   getFilters,
@@ -32,22 +33,28 @@ const selectedStatus = document.querySelector("#selected-status");
 const facilityNameSearch = document.querySelector("#facility-name-search");
 const sortBySelect = document.querySelector("#sort-by");
 const sortOrderSelect = document.querySelector("#sort-order");
-const loadMoreButton = document.querySelector("#load-more-button");
-const MAPBOX_PUBLIC_TOKEN = window.MAPBOX_PUBLIC_TOKEN || "";
+const previousPageButton = document.querySelector("#previous-page-button");
+const nextPageButton = document.querySelector("#next-page-button");
+const pageStatus = document.querySelector("#page-status");
+const paginationLoading = document.querySelector("#pagination-loading");
 
 let activeMap = null;
 
 const appState = {
   filters: null,
   allResults: [],
-  visibleResults: [],
-  visibleCount: 10,
   totalFacilities: 0,
   selectedFacilityId: null,
+  currentPage: 1,
   pageSize: 10,
+  backendBatchSize: 20,
+  nextOffset: 0,
+  totalMatching: 0,
+  hasMore: false,
   nameQuery: "",
   sortBy: "trust_score",
   sortOrder: "desc",
+  mapboxPublicToken: window.MAPBOX_PUBLIC_TOKEN || "",
   selectedState: "",
   selectedCity: "",
   stateQuery: "",
@@ -57,16 +64,31 @@ const appState = {
     state: 0,
     city: 0,
   },
+  isLoadingList: false,
+  isLoadingNextBatch: false,
 };
 
 async function initializeDashboard() {
   try {
-    const filters = await getFilters();
+    const [config, filters] = await Promise.all([
+      loadPublicConfig(),
+      getFilters(),
+    ]);
+    appState.mapboxPublicToken =
+      config.mapboxPublicToken || window.MAPBOX_PUBLIC_TOKEN || "";
     appState.filters = filters;
     renderFilterOptions(filters);
     await loadFacilities();
   } catch (error) {
     renderError(error.message);
+  }
+}
+
+async function loadPublicConfig() {
+  try {
+    return await getConfig();
+  } catch (error) {
+    return { mapboxPublicToken: "" };
   }
 }
 
@@ -130,21 +152,37 @@ function renderSummaryCard(label, value, description) {
 }
 
 async function loadFacilities() {
+  appState.isLoadingList = true;
+  appState.isLoadingNextBatch = false;
+  appState.allResults = [];
+  appState.currentPage = 1;
+  appState.nextOffset = 0;
+  appState.totalMatching = 0;
+  appState.hasMore = false;
   renderListLoading();
   renderDetailLoading();
 
   const filters = currentFilters();
   const [searchResponse, summaryResponse] = await Promise.all([
-    searchFacilities({ ...filters, limit: 500 }),
+    searchFacilities({
+      ...filters,
+      name: appState.nameQuery,
+      sortBy: appState.sortBy,
+      sortOrder: appState.sortOrder,
+      offset: 0,
+      limit: appState.backendBatchSize,
+    }),
     getSummary(filters),
   ]);
 
   appState.allResults = searchResponse.results ?? [];
-  appState.visibleCount = appState.pageSize;
+  appState.totalMatching = searchResponse.total ?? appState.allResults.length;
+  appState.nextOffset = searchResponse.nextOffset ?? appState.allResults.length;
+  appState.hasMore = Boolean(searchResponse.hasMore);
+  appState.isLoadingList = false;
   renderSummary(summaryResponse);
   renderCityOptions();
-  applyLocalFiltersAndSort();
-  appState.selectedFacilityId = appState.visibleResults[0]?.facility_id ?? null;
+  appState.selectedFacilityId = appState.allResults[0]?.facility_id ?? null;
   renderFacilities();
 
   if (appState.selectedFacilityId) {
@@ -156,10 +194,14 @@ async function loadFacilities() {
 }
 
 function renderFacilities() {
-  const total = appState.visibleResults.length;
-  const visibleItems = appState.visibleResults.slice(0, appState.visibleCount);
+  const total = appState.totalMatching || appState.allResults.length;
+  const start = (appState.currentPage - 1) * appState.pageSize;
+  const end = start + appState.pageSize;
+  const visibleItems = appState.allResults.slice(start, end);
 
-  resultCount.textContent = total ? "Top results" : "No matches found";
+  resultCount.textContent = total
+    ? `Showing ${start + 1}-${Math.min(end, total)} of ${total.toLocaleString()} matching facilities`
+    : "No matches found";
 
   facilityList.innerHTML = visibleItems.length
     ? visibleItems
@@ -167,7 +209,7 @@ function renderFacilities() {
           renderFacilityCard(
             facility,
             appState.selectedFacilityId,
-            index
+            start + index
           )
         )
         .join("")
@@ -177,7 +219,7 @@ function renderFacilities() {
     button.addEventListener("click", () => selectFacility(button.dataset.facilityId));
   });
 
-  renderLoadMoreButton();
+  renderPaginationControls();
 }
 
 async function selectFacility(facilityId) {
@@ -308,9 +350,9 @@ function renderFacilityMap(mapPayload) {
     ${mapPayload.warning ? `<p class="map-warning">${escapeHtml(mapPayload.warning)}</p>` : ""}
   `;
 
-  if (!MAPBOX_PUBLIC_TOKEN || !window.mapboxgl) {
+  if (!appState.mapboxPublicToken || !window.mapboxgl) {
     container.querySelector(".facility-map").innerHTML = `
-      <div class="map-token-empty">Map preview requires a Mapbox public token.</div>
+      <div class="map-token-empty">Map is unavailable because Mapbox public token is not configured.</div>
     `;
     return;
   }
@@ -319,7 +361,7 @@ function renderFacilityMap(mapPayload) {
     // Mapbox GL JS expects [longitude, latitude], not [latitude, longitude].
     const center = [mapPayload.longitude, mapPayload.latitude];
     activeMap = new mapboxgl.Map({
-      accessToken: MAPBOX_PUBLIC_TOKEN,
+      accessToken: appState.mapboxPublicToken,
       container: mapId,
       style: "mapbox://styles/mapbox/streets-v12",
       center,
@@ -793,59 +835,75 @@ function uniqueSorted(values) {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-function applyLocalFiltersAndSort() {
-  const query = appState.nameQuery.trim().toLowerCase();
+function renderPaginationControls() {
+  const total = appState.totalMatching || appState.allResults.length;
+  const loadedPages = Math.max(1, Math.ceil(appState.allResults.length / appState.pageSize));
+  const totalPages = Math.max(1, Math.ceil(total / appState.pageSize));
+  const nextPageStart = appState.currentPage * appState.pageSize;
+  const canGoPrevious = appState.currentPage > 1;
+  const canGoNext = nextPageStart < appState.allResults.length || appState.hasMore;
 
-  appState.visibleResults = appState.allResults
-    .filter((facility) =>
-      query
-        ? String(facility.facility_name ?? "").toLowerCase().includes(query)
-        : true
-    )
-    .sort(compareFacilities);
+  previousPageButton.disabled = appState.isLoadingList || appState.isLoadingNextBatch || !canGoPrevious;
+  nextPageButton.disabled = appState.isLoadingList || appState.isLoadingNextBatch || !canGoNext;
+  pageStatus.textContent = total
+    ? `Page ${appState.currentPage} of ${totalPages}`
+    : "Page 1";
+  pageStatus.title = `Loaded ${loadedPages} page${loadedPages === 1 ? "" : "s"}`;
+  paginationLoading.hidden = !appState.isLoadingNextBatch;
 }
 
-function compareFacilities(left, right) {
-  const field = appState.sortBy;
-  const direction = appState.sortOrder === "asc" ? 1 : -1;
-  const numericFields = new Set([
-    "trust_score",
-    "warning_signal_count",
-    "support_signal_count",
-    "missing_signal_count",
-    "number_doctors",
-    "capacity",
-  ]);
+async function fetchNextResultsBatch() {
+  appState.isLoadingNextBatch = true;
+  renderPaginationControls();
 
-  if (field === "trust_label") {
-    return compareTrustLabels(left.trust_label, right.trust_label) * direction;
+  const response = await searchFacilities({
+    ...currentFilters(),
+    name: appState.nameQuery,
+    sortBy: appState.sortBy,
+    sortOrder: appState.sortOrder,
+    offset: appState.nextOffset,
+    limit: appState.backendBatchSize,
+  });
+
+  appState.allResults = [...appState.allResults, ...(response.results ?? [])];
+  appState.totalMatching = response.total ?? appState.totalMatching;
+  appState.nextOffset = response.nextOffset ?? appState.allResults.length;
+  appState.hasMore = Boolean(response.hasMore);
+  appState.isLoadingNextBatch = false;
+}
+
+async function goToNextPage() {
+  const nextPageStart = appState.currentPage * appState.pageSize;
+
+  if (nextPageStart >= appState.allResults.length) {
+    if (!appState.hasMore) {
+      return;
+    }
+
+    try {
+      await fetchNextResultsBatch();
+    } catch (error) {
+      appState.isLoadingNextBatch = false;
+      renderError(error.message);
+      return;
+    }
   }
 
-  const leftValue = left[field];
-  const rightValue = right[field];
+  if (nextPageStart < appState.allResults.length) {
+    appState.currentPage += 1;
+    renderFacilities();
+  } else {
+    renderPaginationControls();
+  }
+}
 
-  if (numericFields.has(field)) {
-    return (Number(leftValue ?? 0) - Number(rightValue ?? 0)) * direction;
+function goToPreviousPage() {
+  if (appState.currentPage <= 1) {
+    return;
   }
 
-  return String(leftValue ?? "").localeCompare(String(rightValue ?? "")) * direction;
-}
-
-function compareTrustLabels(leftLabel, rightLabel) {
-  const trustOrder = {
-    Unverified: 0,
-    Weak: 1,
-    Mixed: 2,
-    Trusted: 3,
-  };
-
-  return (trustOrder[leftLabel] ?? -1) - (trustOrder[rightLabel] ?? -1);
-}
-
-function renderLoadMoreButton() {
-  const hasMore = appState.visibleCount < appState.visibleResults.length;
-  loadMoreButton.hidden = !hasMore;
-  loadMoreButton.disabled = false;
+  appState.currentPage -= 1;
+  renderFacilities();
 }
 
 function updateCapabilityCards() {
@@ -858,8 +916,10 @@ function updateCapabilityCards() {
 
 function renderListLoading() {
   resultCount.textContent = "Loading matches...";
-  loadMoreButton.hidden = true;
-  loadMoreButton.disabled = true;
+  previousPageButton.disabled = true;
+  nextPageButton.disabled = true;
+  pageStatus.textContent = "Loading results";
+  paginationLoading.hidden = true;
   facilityList.innerHTML = Array.from({ length: 3 })
     .map(
       () => `
@@ -926,17 +986,24 @@ async function handleSaveReview(event) {
 }
 
 function renderError(message) {
+  appState.isLoadingList = false;
+  appState.isLoadingNextBatch = false;
   facilityList.innerHTML = `<div class="error-state">${escapeHtml(message)}</div>`;
   facilityDetail.innerHTML = `<div class="error-state">${escapeHtml(message)}</div>`;
+  renderPaginationControls();
 }
 
-function handleLocalListChange() {
+async function handleListQueryChange() {
   appState.nameQuery = facilityNameSearch.value;
   appState.sortBy = sortBySelect.value;
   appState.sortOrder = sortOrderSelect.value;
-  appState.visibleCount = appState.pageSize;
-  applyLocalFiltersAndSort();
-  renderFacilities();
+
+  try {
+    await loadFacilities();
+  } catch (error) {
+    appState.isLoadingList = false;
+    renderError(error.message);
+  }
 }
 
 filterForm.addEventListener("submit", async (event) => {
@@ -1032,14 +1099,11 @@ document.addEventListener("click", (event) => {
   }
 });
 
-facilityNameSearch.addEventListener("input", handleLocalListChange);
-sortBySelect.addEventListener("change", handleLocalListChange);
-sortOrderSelect.addEventListener("change", handleLocalListChange);
-
-loadMoreButton.addEventListener("click", () => {
-  appState.visibleCount += appState.pageSize;
-  renderFacilities();
-});
+facilityNameSearch.addEventListener("input", handleListQueryChange);
+sortBySelect.addEventListener("change", handleListQueryChange);
+sortOrderSelect.addEventListener("change", handleListQueryChange);
+previousPageButton.addEventListener("click", goToPreviousPage);
+nextPageButton.addEventListener("click", goToNextPage);
 
 refreshButton.addEventListener("click", async () => {
   try {

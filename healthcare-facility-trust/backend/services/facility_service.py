@@ -427,6 +427,40 @@ def score_results(
     return sorted_results[:limit] if limit else sorted_results
 
 
+def sort_results(
+    results: list[dict[str, Any]],
+    sort_by: str = "trust_score",
+    sort_order: str = "desc",
+) -> list[dict[str, Any]]:
+    normalized_sort_by = sort_by or "trust_score"
+    reverse = (sort_order or "desc").lower() != "asc"
+    numeric_fields = {
+        "trust_score",
+        "support_signal_count",
+        "warning_signal_count",
+        "missing_signal_count",
+        "number_doctors",
+        "capacity",
+        "year_established",
+    }
+    trust_order = {
+        "Unverified": 0,
+        "Weak": 1,
+        "Mixed": 2,
+        "Trusted": 3,
+    }
+
+    def sort_key(item: dict[str, Any]) -> Any:
+        value = item.get(normalized_sort_by)
+        if normalized_sort_by == "trust_label":
+            return trust_order.get(str(value), -1)
+        if normalized_sort_by in numeric_fields:
+            return value or 0
+        return str(value or "").lower()
+
+    return sorted(results, key=sort_key, reverse=reverse)
+
+
 def compact_assessment(assessment: dict[str, Any]) -> dict[str, Any]:
     compact = assessment.copy()
     compact["evidence_snippets"] = []
@@ -443,16 +477,57 @@ def search_facilities(
     capability: str | None = None,
     state: str | None = None,
     city: str | None = None,
-    limit: int = 100,
+    name: str | None = None,
+    trustLevel: str | None = None,
+    sortBy: str = "trust_score",
+    sortOrder: str = "desc",
+    offset: int = 0,
+    limit: int = 20,
 ) -> dict[str, Any]:
     selected_capability = capability or "ICU"
-    normalized_limit = max(1, min(limit, 500))
-    results = score_results(selected_capability, state, city, limit=normalized_limit)
+    normalized_offset = max(0, offset)
+    normalized_limit = max(1, min(limit, 50))
+    normalized_sort_by = sortBy or "trust_score"
+    normalized_sort_order = "asc" if (sortOrder or "desc").lower() == "asc" else "desc"
+
+    results = score_results(selected_capability, state, city)
+
+    if name:
+        normalized_name = name.lower()
+        results = [
+            result
+            for result in results
+            if normalized_name in result["facility_name"].lower()
+        ]
+
+    if trustLevel:
+        normalized_trust_level = trustLevel.lower()
+        results = [
+            result
+            for result in results
+            if result["trust_label"].lower() == normalized_trust_level
+        ]
+
+    results = sort_results(results, normalized_sort_by, normalized_sort_order)
+    total = len(results)
+    paged_results = results[normalized_offset : normalized_offset + normalized_limit]
+    next_offset = normalized_offset + len(paged_results)
+
     return {
         "capability": selected_capability,
         "state": state,
         "city": city,
-        "results": [compact_assessment(result) for result in results],
+        "name": name,
+        "trustLevel": trustLevel,
+        "sortBy": normalized_sort_by,
+        "sortOrder": normalized_sort_order,
+        "offset": normalized_offset,
+        "limit": normalized_limit,
+        "total": total,
+        "returned": len(paged_results),
+        "nextOffset": next_offset,
+        "hasMore": next_offset < total,
+        "results": [compact_assessment(result) for result in paged_results],
     }
 
 

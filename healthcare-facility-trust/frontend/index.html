@@ -256,13 +256,26 @@
           <div class="facility-list-scroll">
             <div id="facility-list" class="facility-list" aria-live="polite"></div>
             <div class="list-footer">
-              <button
-                id="load-more-button"
-                type="button"
-                class="secondary-button load-more-button"
-              >
-                Load More Facilities
-              </button>
+              <div class="results-pagination" aria-label="Facility results pagination">
+                <button
+                  id="previous-page-button"
+                  type="button"
+                  class="secondary-button pagination-button"
+                >
+                  Previous
+                </button>
+                <span id="page-status" class="page-status">Page 1</span>
+                <button
+                  id="next-page-button"
+                  type="button"
+                  class="secondary-button pagination-button"
+                >
+                  Next
+                </button>
+              </div>
+              <p id="pagination-loading" class="pagination-loading" hidden>
+                Loading more results...
+              </p>
             </div>
           </div>
         </div>

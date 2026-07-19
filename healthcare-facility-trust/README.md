@@ -13,6 +13,9 @@ warnings, and saved planner review notes.
 ## Current structure
 
 ```text
+app.py                   Databricks/FastAPI single app entrypoint
+app.yaml                 Databricks Apps startup command
+
 backend/
   main.py                 FastAPI app entrypoint
   routes/                 API route declarations
@@ -49,23 +52,106 @@ The CSV can use the schema field names directly, including `name`,
 Common aliases such as `facilityId`, `facilityName`, `city`, `state`, `pin`,
 `capabilities`, and `procedures` are also normalized automatically.
 
-## Run the backend
+## Local run
 
 ```bash
 cd healthcare-facility-trust
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn backend.main:app --reload --port 8000
+uvicorn app:app --reload --port 8000
 ```
 
-## Run the frontend
+Open:
 
-In a second terminal:
-
-```bash
-cd healthcare-facility-trust/frontend
-python -m http.server 5173
+```text
+http://localhost:8000
 ```
 
-Open http://localhost:5173.
+Test:
+
+```text
+http://localhost:8000/api/health
+http://localhost:8000/api/filters
+http://localhost:8000/api/facilities/search?capability=ICU&limit=20
+```
+
+The root `app.py` reuses `backend.main:app`, serves all `/api` routes, serves
+`frontend/index.html` at `GET /`, and mounts static frontend assets for the
+HTML/CSS/JS paths used by the vanilla frontend.
+
+For older split local development, the frontend can still call
+`http://localhost:8000` when opened from a separate localhost port. The
+Databricks deployment path uses same-origin API requests.
+
+## Databricks Apps deployment
+
+This app is designed for Databricks Apps on Free Edition. The hackathon
+submission requires a live Databricks App, so root-level `app.py` and
+`app.yaml` are the deployment entrypoints.
+
+Deployment steps:
+
+1. Push this repository to GitHub.
+2. Open Databricks Free Edition.
+3. Go to Databricks Apps.
+4. Create a custom app.
+5. Connect the Git repository and target branch.
+6. Confirm `app.yaml` is at the app project root.
+7. Deploy.
+8. Open the Databricks App URL and test the dashboard.
+
+`app.yaml` runs:
+
+```yaml
+command:
+  - uvicorn
+  - app:app
+  - --host
+  - 0.0.0.0
+  - --port
+  - $DATABRICKS_APP_PORT
+```
+
+`DATABRICKS_APP_PORT` is provided by the Databricks Apps runtime. Do not
+hardcode port `8000` in deployment config.
+
+## Environment variables
+
+Optional Mapbox support uses:
+
+```text
+MAPBOX_TOKEN=backend geocoding token
+MAPBOX_PUBLIC_TOKEN=frontend public Mapbox rendering token
+```
+
+Do not commit real tokens. Configure them locally in `.env` /
+`frontend/config.local.js`, or configure them as Databricks App environment
+variables/secrets.
+
+`MAPBOX_TOKEN` is never returned to the browser. The public config endpoint
+`GET /api/config` returns only:
+
+```json
+{
+  "mapboxPublicToken": ""
+}
+```
+
+If Mapbox variables are missing, the app still starts. The Evidence Review map
+shows a clean unavailable state instead of crashing.
+
+Optional placeholders are documented in `.env.example`.
+
+## Troubleshooting
+
+- If the frontend loads but API calls fail, check that requests use same-origin
+  `/api/...` paths in deployed mode.
+- If CSS or JS files are missing, confirm `/frontend` is mounted by `app.py`.
+- If the Databricks App fails to start, check `app.yaml`, `requirements.txt`,
+  and the `uvicorn app:app` command.
+- If Mapbox is blank, check `MAPBOX_PUBLIC_TOKEN` and that the map container has
+  visible height.
+- If backend geocoding fails, check `MAPBOX_TOKEN`.
+- If review persistence fails, confirm the runtime can create the local
+  `.runtime/` directory.

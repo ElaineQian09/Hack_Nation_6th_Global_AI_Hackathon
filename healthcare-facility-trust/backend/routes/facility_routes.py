@@ -14,9 +14,24 @@ def search(
     capability: str | None = None,
     state: str | None = None,
     city: str | None = None,
-    limit: int = 100,
+    name: str | None = None,
+    trustLevel: str | None = None,
+    sortBy: str = "trust_score",
+    sortOrder: str = "desc",
+    offset: int = 0,
+    limit: int = 20,
 ) -> dict:
-    return list_facilities(capability=capability, state=state, city=city, limit=limit)
+    return list_facilities(
+        capability=capability,
+        state=state,
+        city=city,
+        name=name,
+        trustLevel=trustLevel,
+        sortBy=sortBy,
+        sortOrder=sortOrder,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("/{facility_id}", response_model=FacilityDetailResponse)

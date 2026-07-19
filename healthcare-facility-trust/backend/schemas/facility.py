@@ -49,6 +49,16 @@ class FacilitySearchResponse(BaseModel):
     capability: str
     state: str | None = None
     city: str | None = None
+    name: str | None = None
+    trustLevel: str | None = None
+    sortBy: str
+    sortOrder: str
+    offset: int
+    limit: int
+    total: int
+    returned: int
+    nextOffset: int
+    hasMore: bool
     results: list[FacilityAssessment]
 
 

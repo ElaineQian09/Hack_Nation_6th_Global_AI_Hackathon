@@ -6,9 +6,24 @@ def list_facilities(
     capability: str | None = None,
     state: str | None = None,
     city: str | None = None,
-    limit: int = 100,
+    name: str | None = None,
+    trustLevel: str | None = None,
+    sortBy: str = "trust_score",
+    sortOrder: str = "desc",
+    offset: int = 0,
+    limit: int = 20,
 ) -> dict:
-    return search_facilities(capability=capability, state=state, city=city, limit=limit)
+    return search_facilities(
+        capability=capability,
+        state=state,
+        city=city,
+        name=name,
+        trustLevel=trustLevel,
+        sortBy=sortBy,
+        sortOrder=sortOrder,
+        offset=offset,
+        limit=limit,
+    )
 
 
 def read_facility(facility_id: str, capability: str | None = None) -> dict:

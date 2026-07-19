@@ -1252,14 +1252,34 @@ button:hover,
 }
 
 .list-footer {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
   padding-top: 18px;
 }
 
-.load-more-button {
-  min-width: 190px;
-  gap: 8px;
+.results-pagination {
+  display: inline-grid;
+  grid-template-columns: auto minmax(120px, auto) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.pagination-button {
+  min-width: 104px;
+}
+
+.page-status {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pagination-loading {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 button:disabled {
@@ -1423,6 +1443,11 @@ button:disabled {
 
   .score-box {
     text-align: left;
+  }
+
+  .results-pagination {
+    width: 100%;
+    grid-template-columns: 1fr;
   }
 
   .ranked-panel {

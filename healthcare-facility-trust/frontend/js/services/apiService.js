@@ -1,4 +1,9 @@
-const API_BASE_URL = "http://localhost:8000";
+const isLocalFrontendServer =
+  ["localhost", "127.0.0.1"].includes(window.location.hostname) &&
+  window.location.port &&
+  window.location.port !== "8000";
+
+const API_BASE_URL = isLocalFrontendServer ? "http://localhost:8000" : "";
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -35,6 +40,10 @@ export function getHealth() {
   return request("/api/health");
 }
 
+export function getConfig() {
+  return request("/api/config");
+}
+
 export function getFilters() {
   return request("/api/filters");
 }
@@ -44,8 +53,28 @@ export function getSummary({ capability, state, city } = {}) {
   return request(`/api/summary${query ? `?${query}` : ""}`);
 }
 
-export function searchFacilities({ capability, state, city, limit } = {}) {
-  const query = buildParams({ capability, state, city, limit });
+export function searchFacilities({
+  capability,
+  state,
+  city,
+  name,
+  trustLevel,
+  sortBy,
+  sortOrder,
+  offset,
+  limit,
+} = {}) {
+  const query = buildParams({
+    capability,
+    state,
+    city,
+    name,
+    trustLevel,
+    sortBy,
+    sortOrder,
+    offset,
+    limit,
+  });
   return request(`/api/facilities/search${query ? `?${query}` : ""}`);
 }
 
