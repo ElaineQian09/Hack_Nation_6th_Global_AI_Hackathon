@@ -54,7 +54,7 @@ const appState = {
   nameQuery: "",
   sortBy: "trust_score",
   sortOrder: "desc",
-  mapboxPublicToken: window.MAPBOX_PUBLIC_TOKEN || "",
+  mapboxToken: window.MAPBOX_TOKEN || "",
   selectedState: "",
   selectedCity: "",
   stateQuery: "",
@@ -74,8 +74,7 @@ async function initializeDashboard() {
       loadPublicConfig(),
       getFilters(),
     ]);
-    appState.mapboxPublicToken =
-      config.mapboxPublicToken || window.MAPBOX_PUBLIC_TOKEN || "";
+    appState.mapboxToken = config.mapboxToken || window.MAPBOX_TOKEN || "";
     appState.filters = filters;
     renderFilterOptions(filters);
     await loadFacilities();
@@ -88,7 +87,7 @@ async function loadPublicConfig() {
   try {
     return await getConfig();
   } catch (error) {
-    return { mapboxPublicToken: "" };
+    return { mapboxToken: "" };
   }
 }
 
@@ -350,7 +349,7 @@ function renderFacilityMap(mapPayload) {
     ${mapPayload.warning ? `<p class="map-warning">${escapeHtml(mapPayload.warning)}</p>` : ""}
   `;
 
-  if (!appState.mapboxPublicToken || !window.mapboxgl) {
+  if (!appState.mapboxToken || !window.mapboxgl) {
     container.querySelector(".facility-map").innerHTML = `
       <div class="map-token-empty">Map is unavailable because Mapbox public token is not configured.</div>
     `;
@@ -361,7 +360,7 @@ function renderFacilityMap(mapPayload) {
     // Mapbox GL JS expects [longitude, latitude], not [latitude, longitude].
     const center = [mapPayload.longitude, mapPayload.latitude];
     activeMap = new mapboxgl.Map({
-      accessToken: appState.mapboxPublicToken,
+      accessToken: appState.mapboxToken,
       container: mapId,
       style: "mapbox://styles/mapbox/streets-v12",
       center,

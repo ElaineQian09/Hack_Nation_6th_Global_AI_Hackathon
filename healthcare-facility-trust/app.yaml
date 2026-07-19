@@ -5,3 +5,7 @@ command:
   - 0.0.0.0
   - --port
   - $DATABRICKS_APP_PORT
+
+env:
+  - name: MAPBOX_TOKEN
+    value: pk.eyJ1IjoianNkZ2ZoM3kiLCJhIjoiY21ycjNqaWRnMDc4azJ4cHBycGs0eXllNSJ9._Ref0Sh_SAF_hbqc_vsDbQ

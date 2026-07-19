@@ -52,7 +52,7 @@ def read_local_frontend_config():
 @app.get("/api/config")
 def read_public_config() -> dict[str, str]:
     return {
-        "mapboxPublicToken": os.getenv("MAPBOX_PUBLIC_TOKEN", ""),
+        "mapboxToken": os.getenv("MAPBOX_TOKEN", ""),
     }
 
 

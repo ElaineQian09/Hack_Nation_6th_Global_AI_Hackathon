@@ -118,27 +118,41 @@ hardcode port `8000` in deployment config.
 
 ## Environment variables
 
-Optional Mapbox support uses:
+Mapbox support uses one environment variable:
 
 ```text
-MAPBOX_TOKEN=backend geocoding token
-MAPBOX_PUBLIC_TOKEN=frontend public Mapbox rendering token
+MAPBOX_TOKEN=Mapbox pk token for frontend map rendering and optional backend geocoding
 ```
 
-Do not commit real tokens. Configure them locally in `.env` /
-`frontend/config.local.js`, or configure them as Databricks App environment
-variables/secrets.
+Do not commit the real token. Configure it locally in `.env` or
+`frontend/config.local.js`, or configure it as a Databricks App secret resource.
 
-`MAPBOX_TOKEN` is never returned to the browser. The public config endpoint
-`GET /api/config` returns only:
+For Databricks Apps, add one Secret resource:
+
+```text
+Secret scope: facility-trust-desk
+Secret key: MAPBOX_TOKEN
+Resource key: mapbox_token
+Permission: Can read
+```
+
+`app.yaml` injects it with:
+
+```yaml
+env:
+  - name: MAPBOX_TOKEN
+    valueFrom: mapbox_token
+```
+
+The public config endpoint `GET /api/config` returns:
 
 ```json
 {
-  "mapboxPublicToken": ""
+  "mapboxToken": ""
 }
 ```
 
-If Mapbox variables are missing, the app still starts. The Evidence Review map
+If `MAPBOX_TOKEN` is missing, the app still starts. The Evidence Review map
 shows a clean unavailable state instead of crashing.
 
 Optional placeholders are documented in `.env.example`.
@@ -150,7 +164,7 @@ Optional placeholders are documented in `.env.example`.
 - If CSS or JS files are missing, confirm `/frontend` is mounted by `app.py`.
 - If the Databricks App fails to start, check `app.yaml`, `requirements.txt`,
   and the `uvicorn app:app` command.
-- If Mapbox is blank, check `MAPBOX_PUBLIC_TOKEN` and that the map container has
+- If Mapbox is blank, check `MAPBOX_TOKEN` and that the map container has
   visible height.
 - If backend geocoding fails, check `MAPBOX_TOKEN`.
 - If review persistence fails, confirm the runtime can create the local

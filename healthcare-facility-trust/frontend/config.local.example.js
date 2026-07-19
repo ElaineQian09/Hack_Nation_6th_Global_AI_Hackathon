@@ -1,2 +1,1 @@
-
-window.MAPBOX_PUBLIC_TOKEN = "pk.your_mapbox_public_token_here";
+window.MAPBOX_TOKEN = "pk.your_mapbox_token_here";
