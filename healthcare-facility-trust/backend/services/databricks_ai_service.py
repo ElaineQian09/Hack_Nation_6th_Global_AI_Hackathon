@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import traceback
 from typing import Any
 
 from backend.services.facility_service import get_facility_detail
@@ -31,7 +32,9 @@ def generate_ai_summary(
 
     try:
         summary = query_databricks_endpoint(endpoint_name, build_prompt(assessment))
-    except Exception:
+    except Exception as exc:
+        print("[ai-summary] Databricks AI call failed:", repr(exc), flush=True)
+        print(traceback.format_exc(), flush=True)
         return build_response(
             facility_id=facility_id,
             capability=selected_capability,
@@ -115,19 +118,30 @@ def query_databricks_endpoint(endpoint_name: str, prompt: str) -> str:
             ChatMessage(
                 role=ChatMessageRole.SYSTEM,
                 content=(
-                    "You summarize healthcare facility evidence. Stay grounded "
-                    "in the provided facts and do not invent details."
+                    "You summarize healthcare facility evidence for public-health "
+                    "planners. Be concise, evidence-grounded, and honest about "
+                    "uncertainty. Do not invent facts."
                 ),
             ),
             ChatMessage(role=ChatMessageRole.USER, content=prompt),
         ],
-        max_tokens=220,
+        max_tokens=250,
         temperature=0.2,
     )
+    print("[ai-summary] Databricks AI response type:", type(response), flush=True)
+    print("[ai-summary] Databricks AI response preview:", str(response)[:1000], flush=True)
     return extract_summary_text(response)
 
 
 def extract_summary_text(response: Any) -> str:
+    try:
+        content = response.choices[0].message.content
+        if content:
+            return str(content).strip()
+    except Exception as exc:
+        print("[ai-summary] Direct response parsing failed:", repr(exc), flush=True)
+        print("[ai-summary] Databricks AI response preview:", str(response)[:1000], flush=True)
+
     if hasattr(response, "as_dict"):
         payload = response.as_dict()
     elif isinstance(response, dict):
@@ -156,3 +170,21 @@ def extract_summary_text(response: Any) -> str:
         return str(first_prediction).strip()
 
     return str(payload.get("output") or payload.get("text") or "").strip()
+
+
+def get_ai_health() -> dict[str, Any]:
+    try:
+        import databricks.sdk  # noqa: F401
+
+        sdk_import_ok = True
+    except Exception:
+        sdk_import_ok = False
+
+    return {
+        "configured": bool(os.getenv("DATABRICKS_AI_ENDPOINT")),
+        "endpoint": os.getenv("DATABRICKS_AI_ENDPOINT", ""),
+        "hasDatabricksHost": bool(os.getenv("DATABRICKS_HOST")),
+        "hasClientId": bool(os.getenv("DATABRICKS_CLIENT_ID")),
+        "hasClientSecret": bool(os.getenv("DATABRICKS_CLIENT_SECRET")),
+        "sdkImportOk": sdk_import_ok,
+    }

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.routes import ai_routes
 from backend.routes import data_quality_routes
 from backend.routes import facility_routes
 from backend.routes import filter_routes
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     )
 
     api.include_router(health_routes.router)
+    api.include_router(ai_routes.router)
     api.include_router(filter_routes.router)
     api.include_router(summary_routes.router)
     api.include_router(facility_routes.router)
